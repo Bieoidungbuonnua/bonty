@@ -3,12 +3,16 @@ if not LPH_OBFUSCATED then
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
 end
 
+local RS_ = game:GetService("ReplicatedStorage")
+local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
+
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
+    pcall(function()
+        CommF_:InvokeServer("SetTeam", "Marines")
+    end)
     task.wait(1)
 end
-
 local placeIdd = game.PlaceId
 local worldMap = {[2753915549]="World1",[85211729168715]="World1",[4442272183]="World2",[79091703265657]="World2",[7449423635]="World3",[100117331123089]="World3"}
 
