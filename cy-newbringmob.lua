@@ -531,8 +531,15 @@ local function MAX_CHESTS_FarmChestFast()
             end
         end
     end
-    SetText("Chest | Hết (" .. collected .. ") → Hop")
+SetText("Chest | Hết (" .. collected .. ") → Hop")
+    task.wait(2)
     HopServer(5)
+    task.wait(10)
+    -- Fallback: nếu vẫn chưa hop thì force hop lại
+    if not getgenv().StopV3 then
+        SetText("Chest | Fallback Hop...")
+        HopServer(3)
+    end
 end
 local function BuyRandomFruit()
     SetText("Cyborg V3 | Random fruit...")
