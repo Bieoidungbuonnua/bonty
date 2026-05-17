@@ -619,7 +619,8 @@ local function GetCyborgFirstTime()
         task.wait(1)
         if getCurrentRace() == "Cyborg" then SetText("Have Cyborg!") break end
 
-        if LP.Data.Fragments.Value >= 2500 then
+        local frags = LP.Data.Fragments.Value
+        if frags >= 2500 then
             RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy")
             task.wait(2)
             if getCurrentRace() == "Cyborg" then break end
@@ -627,6 +628,11 @@ local function GetCyborgFirstTime()
 
         local state = "NaN"
         pcall(function() state = readfile(cyborgFile) end)
+
+-- check frags nếu thiếu 
+        if frags < 2500 and state ~= "NaN" then
+            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
+        end
 
         if state == "NaN" then
             if not CheckSea(2) then
@@ -702,7 +708,13 @@ for _, v in pairs(workspace.Enemies:GetChildren()) do
 end
                     if not orderFound then
                         if not CheckTool("Microchip") and not CheckTool("Core Brain") then
-                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                            local frags2 = LP.Data.Fragments.Value
+                            if frags2 >= 1000 then
+                                RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                            else
+                                SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
+                                task.wait(3)
+                            end
                         end
                         pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
                         RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
