@@ -449,8 +449,8 @@ task.spawn(function()
             local currentPos = LP.Character.HumanoidRootPart.Position
             if (currentPos - lastPos).Magnitude < 2 then
                 stuckTime = stuckTime + 1
-                if stuckTime >= 30 then
-                    SetText("Stuck for 30s -> Hop Server!")
+                if stuckTime >= 120 then
+                    SetText("Stuck for 120s -> Hop Server!")
                     HopServer(5)
                     stuckTime = 0
                 end
