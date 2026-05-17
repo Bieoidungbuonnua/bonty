@@ -755,10 +755,10 @@ while not getgenv().StopV3 do
         end
     end
 
-    if lv == 3 then
+if lv == 3 then
         SetText("Cyborg V3 DONE!")
+        getgenv().StopV3 = true
         break
     end
-end
 
 SetText("Done Cyborg V3!")
