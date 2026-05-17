@@ -727,14 +727,7 @@ elseif state == "unlock" then
         end
     end
 end
-
-
-local world = worldMap[placeIdd]
-if world == "World1" or world == "World3" then
-    RS.Remotes.CommF_:InvokeServer("TravelDressrosa")
-end
 task.wait(1)
-
 
 if getCurrentRace() ~= "Cyborg" then
     if not HasUnlockedCyborg() then
