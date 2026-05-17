@@ -425,7 +425,6 @@ task.spawn(function()
     end
 end)
 --------------------------------------------------
-
 local function HasUnlockedCyborg()
     return RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Check") == true
 end
@@ -451,7 +450,11 @@ local function MAX_CHESTS_FarmChestFast()
     local collected = 0
     for _, data in ipairs(sorted) do
         if getgenv().StopV3 then break end
-        if CheckTool("Fist of Darkness") then return "FOD" end
+        if CheckTool("Fist of Darkness") then
+            SetText("Chest | Đã nhặt FOD! Xác nhận...")
+            task.wait(2)
+            if CheckTool("Fist of Darkness") then return "FOD" end
+        end
         if collected >= MAX_CHESTS_PER_SERVER then
             SetText("Done " .. MAX_CHESTS_PER_SERVER .. " → Hop")
             HopServer(5)
@@ -467,13 +470,18 @@ local function MAX_CHESTS_FarmChestFast()
             attempts = attempts + 1
             if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
             if not chest or not chest.Parent then break end
-            if CheckTool("Fist of Darkness") then return "FOD" end
+            if CheckTool("Fist of Darkness") then
+                SetText("Chest | Đã nhặt FOD! Xác nhận...")
+                task.wait(2)
+                if CheckTool("Fist of Darkness") then return "FOD" end
+            end
             LP.Character.HumanoidRootPart.CFrame = chest.CFrame
-            task.wait(0.3)
+            task.wait(0.5)
         until not chest.CanTouch or attempts > 15
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
+            task.wait(0.3)
         end
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
@@ -489,7 +497,6 @@ local function MAX_CHESTS_FarmChestFast()
     SetText("Chest | Hết (" .. collected .. ") → Hop")
     HopServer(5)
 end
-
 local function BuyRandomFruit()
     SetText("Cyborg V3 | Random fruit...")
     TweenTo(CFrame.new(-422.202271, 72.4190063, 386.306335))
@@ -623,11 +630,31 @@ for _, v in pairs(workspace.Enemies:GetChildren()) do
         orderFound = true
         SetText("GET CYBORG | Attack Order")
         EquipByTip("Melee")
+        -- Freeze Order tại chỗ
+        pcall(function()
+            v.HumanoidRootPart.Anchored = true
+            v.Humanoid.WalkSpeed = 0
+            v.Humanoid.JumpPower = 0
+        end)
         repeat
             task.wait(0.1)
-            KillMonster("Order")
+            -- Dùng tween mượt thay vì sky hop
+            local vhrp = v:FindFirstChild("HumanoidRootPart")
+            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if vhrp and myHrp then
+                shouldTween = true
+                block.CFrame = myHrp.CFrame
+                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                local dist = (block.Position - target.Position).Magnitude
+                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
+                tween:Play()
+                tween.Completed:Wait()
+            end
+            getgenv().Attack()
         until not workspace.Enemies:FindFirstChild("Order")
             or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
+        -- Unfreeze sau khi xong
+        pcall(function() v.HumanoidRootPart.Anchored = false end)
         break
     end
 end
