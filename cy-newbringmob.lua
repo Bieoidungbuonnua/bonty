@@ -672,53 +672,57 @@ elseif state == "unlock" then
                 SetText("GET CYBORG | go Sea 2")
                 RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
             else
-local orderFound = false
-for _, v in pairs(workspace.Enemies:GetChildren()) do
-    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-        orderFound = true
-        SetText("GET CYBORG | Attack Order")
-        EquipByTip("Melee")
-        -- Freeze Order tại chỗ
-        pcall(function()
-            v.HumanoidRootPart.Anchored = true
-            v.Humanoid.WalkSpeed = 0
-            v.Humanoid.JumpPower = 0
-        end)
-        repeat
-            task.wait(0.1)
-            -- Dùng tween mượt thay vì sky hop
-            local vhrp = v:FindFirstChild("HumanoidRootPart")
-            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-            if vhrp and myHrp then
-                shouldTween = true
-                block.CFrame = myHrp.CFrame
-                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
-                local dist = (block.Position - target.Position).Magnitude
-                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
-                tween:Play()
-                tween.Completed:Wait()
-            end
-            getgenv().Attack()
-        until not workspace.Enemies:FindFirstChild("Order")
-            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
-        -- Unfreeze sau khi xong
-        pcall(function() v.HumanoidRootPart.Anchored = false end)
-        break
-    end
-end
-                    if not orderFound then
-                        if not CheckTool("Microchip") and not CheckTool("Core Brain") then
-                            local frags2 = LP.Data.Fragments.Value
-                            if frags2 >= 1000 then
-                                RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
-                            else
-                                SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
-                                task.wait(3)
+                local orderFound = false
+                for _, v in pairs(workspace.Enemies:GetChildren()) do
+                    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                        orderFound = true
+                        SetText("GET CYBORG | Attack Order")
+                        EquipByTip("Melee")
+                        pcall(function()
+                            v.HumanoidRootPart.Anchored = true
+                            v.Humanoid.WalkSpeed = 0
+                            v.Humanoid.JumpPower = 0
+                        end)
+                        repeat
+                            task.wait(0.1)
+                            local vhrp = v:FindFirstChild("HumanoidRootPart")
+                            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            if vhrp and myHrp then
+                                shouldTween = true
+                                block.CFrame = myHrp.CFrame
+                                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                                local dist = (block.Position - target.Position).Magnitude
+                                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
+                                tween:Play()
+                                tween.Completed:Wait()
                             end
+                            getgenv().Attack()
+                        until not workspace.Enemies:FindFirstChild("Order")
+                            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
+                        pcall(function() v.HumanoidRootPart.Anchored = false end)
+                        SetText("GET CYBORG | Order đã chết! Chờ xử lý...")
+                        task.wait(5)
+                        if getCurrentRace() == "Cyborg" then
+                            SetText("Have Cyborg!")
+                            break
                         end
-                        pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
-                        RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
+                        break
                     end
+                end
+                if not orderFound then
+                    if not CheckTool("Microchip") and not CheckTool("Core Brain") then
+                        local frags2 = LP.Data.Fragments.Value
+                        if frags2 >= 1000 then
+                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                        else
+                            SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
+                            task.wait(3)
+                            continue
+                        end
+                    end
+                    pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
+                    RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
+                end
             end
         end
     end
