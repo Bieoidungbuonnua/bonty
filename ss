@@ -27,7 +27,9 @@ local LP = game:GetService("Players").LocalPlayer
 local MAX_CHESTS_PER_SERVER = 55
 
 Services = setmetatable({}, {__index = function(self, name)
-    local s, c = pcall(function() return cloneref(game:GetService(name)) end)
+    local s, c = pcall(function()
+        return (cloneref or function(x) return x end)(game:GetService(name))
+    end)
     if s then rawset(self, name, c) return c
     else error("Invalid Roblox Service: " .. tostring(name)) end
 end})
