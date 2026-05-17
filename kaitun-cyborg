@@ -617,15 +617,20 @@ local function GetCyborgFirstTime()
                     SetText("GET CYBORG | go Sea 2")
                     RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
                 else
-                    local orderFound = false
-                    for _, v in pairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                            orderFound = true
-                            SetText("GET CYBORG | Attack Order")
-                            EquipByTip("Melee")
-                            KillMonster("Order"); break
-                        end
-                    end
+local orderFound = false
+for _, v in pairs(workspace.Enemies:GetChildren()) do
+    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+        orderFound = true
+        SetText("GET CYBORG | Attack Order")
+        EquipByTip("Melee")
+        repeat
+            task.wait(0.1)
+            KillMonster("Order")
+        until not workspace.Enemies:FindFirstChild("Order")
+            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
+        break
+    end
+end
                     if not orderFound then
                         if not CheckTool("Microchip") and not CheckTool("Core Brain") then
                             RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
