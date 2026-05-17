@@ -661,13 +661,11 @@ local function GetCyborgFirstTime()
                 end
             end
 
-        elseif state == "unlock" then
-            local frags = LP.Data.Fragments.Value
-            if frags >= 5000 or CheckTool("Microchip") or CheckTool("Core Brain") then
-                if not CheckSea(2) then
-                    SetText("GET CYBORG | go Sea 2")
-                    RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
-                else
+elseif state == "unlock" then
+            if not CheckSea(2) then
+                SetText("GET CYBORG | go Sea 2")
+                RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
+            else
 local orderFound = false
 for _, v in pairs(workspace.Enemies:GetChildren()) do
     if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
@@ -709,12 +707,6 @@ end
                         pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
                         RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
                     end
-                end
-            else
-                if not CheckSea(3) then
-                    SetText("GET CYBORG | go Sea 3")
-                    RS.Remotes.CommF_:InvokeServer("TravelZou"); task.wait(10)
-                end
             end
         end
     end
