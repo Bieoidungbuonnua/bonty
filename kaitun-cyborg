@@ -1,15 +1,18 @@
-
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
 end
 
+local RS_ = game:GetService("ReplicatedStorage")
+local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
+
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
+    pcall(function()
+        CommF_:InvokeServer("SetTeam", "Marines")
+    end)
     task.wait(1)
 end
-
 local placeIdd = game.PlaceId
 local worldMap = {[2753915549]="World1",[85211729168715]="World1",[4442272183]="World2",[79091703265657]="World2",[7449423635]="World3",[100117331123089]="World3"}
 
@@ -24,7 +27,9 @@ local LP = game:GetService("Players").LocalPlayer
 local MAX_CHESTS_PER_SERVER = 55
 
 Services = setmetatable({}, {__index = function(self, name)
-    local s, c = pcall(function() return cloneref(game:GetService(name)) end)
+    local s, c = pcall(function()
+        return (cloneref or function(x) return x end)(game:GetService(name))
+    end)
     if s then rawset(self, name, c) return c
     else error("Invalid Roblox Service: " .. tostring(name)) end
 end})
@@ -299,90 +304,122 @@ local function BringMob()
             
             local dist = (enemy.HumanoidRootPart.Position - myPos).Magnitude
             if dist <= 350 then
-                enemy.HumanoidRootPart.CFrame = CFrame.new(myPos + Vector3.new(0, 0, 5))
+                -- Freeze cứng trước khi dịch chuyển tránh ghost
+                enemy.HumanoidRootPart.Anchored = true
+                enemy.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+                enemy.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
                 enemy.HumanoidRootPart.CanCollide = false
                 enemy.Humanoid.WalkSpeed = 0
                 enemy.Humanoid.JumpPower = 0
-                
+
+                -- Dịch chuyển sát player
+                enemy.HumanoidRootPart.CFrame = CFrame.new(myPos + Vector3.new(0, 0, 3))
+
+                -- Xóa animator tránh animation đẩy mob ra
                 if enemy.Humanoid:FindFirstChild("Animator") then
                     enemy.Humanoid.Animator:Destroy()
                 end
+
+                -- Giữ mob anchored thêm 1 frame để tránh ghost
+                task.defer(function()
+                    pcall(function()
+                        if enemy and enemy.Parent then
+                            enemy.HumanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+                            enemy.HumanoidRootPart.AssemblyAngularVelocity = Vector3.zero
+                        end
+                    end)
+                end)
             end
         end
     end
 end
-
 --------------------------------------------------
 --------------------------------------------------
 local lastKenCall = tick()
 KillMonster = function(x)
     xpcall(function()
-        if workspace.Enemies:FindFirstChild(x) then
-            for _, v in next, workspace.Enemies:GetChildren() do
-                local vh = v:FindFirstChildWhichIsA("Humanoid")
-                local vhrp = v:FindFirstChild("HumanoidRootPart")
-                if vh and vh.Health > 0 and vhrp and v.Name == x then
-                    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    if not myHrp then return end
+        local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if not myHrp then return end
 
-                    local toolTipConfig = CG["toolTip"] or "Melee"
-                    EquipByTip(toolTipConfig)
+        -- Tìm mob trong workspace.Enemies trước
+        for _, v in next, workspace.Enemies:GetChildren() do
+            local vh = v:FindFirstChildWhichIsA("Humanoid")
+            local vhrp = v:FindFirstChild("HumanoidRootPart")
+            if not (vh and vh.Health > 0 and vhrp and v.Name == x) then continue end
 
-                    local dx = myHrp.Position.X - vhrp.Position.X
-                    local dy = myHrp.Position.Y - vhrp.Position.Y
-                    local dz = myHrp.Position.Z - vhrp.Position.Z
-                    
-                    if dx*dx + dy*dy + dz*dz <= 4900 then
-                        if tick() - lastKenCall >= 10 then
-                            lastKenCall = tick()
-                            RS.Remotes.CommE:FireServer("Ken", true)
-                        end
-                    end
+            local toolTipConfig = CG["toolTip"] or "Melee"
+            EquipByTip(toolTipConfig)
 
-                    if toolTipConfig == "Blox Fruit" then
-                        local currentHealth = vh.Health
-                        local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
+            -- Freeze mob ngay lập tức trước mọi thứ
+            pcall(function()
+                vhrp.Anchored = true
+                vhrp.AssemblyLinearVelocity = Vector3.zero
+                vhrp.AssemblyAngularVelocity = Vector3.zero
+                vhrp.CanCollide = false
+                vh.WalkSpeed = 0
+                vh.JumpPower = 0
+            end)
 
-                        if currentHealth < prevHealth then
-                            StopTween()
-                            myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 10000000, vhrp.Position.Z)
-                        else
-                            StopTween()
-                            myHrp.CFrame = vhrp.CFrame
-                        end
-                        vh:SetAttribute("PrevHealth", currentHealth)
-                        BringMob()
-                        return
-                    else
-                        shouldTween = false
-                        local bossPos = vhrp.Position
-                        -- Step 1: Vọt lên trời tại vị trí XZ hiện tại
-                        myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                        -- Step 2: Bay ngang sang XZ của boss (vẫn ở trên cao)
-                        myHrp.CFrame = CFrame.new(bossPos.X, 10000000, bossPos.Z)
-                        -- Step 3: Lao thẳng xuống boss nhưng giữ nguyên XZ vừa set (Sky Hop)
-                        myHrp.CFrame = CFrame.new(bossPos.X, bossPos.Y + 3, bossPos.Z)
-                        
-                        BringMob()
-                        return
-                    end
+            -- Ken check
+            local dx = myHrp.Position.X - vhrp.Position.X
+            local dy = myHrp.Position.Y - vhrp.Position.Y
+            local dz = myHrp.Position.Z - vhrp.Position.Z
+            if dx*dx + dy*dy + dz*dz <= 4900 then
+                if tick() - lastKenCall >= 10 then
+                    lastKenCall = tick()
+                    RS.Remotes.CommE:FireServer("Ken", true)
                 end
             end
+
+            if toolTipConfig == "Blox Fruit" then
+                local currentHealth = vh.Health
+                local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
+                StopTween()
+                if currentHealth < prevHealth then
+                    -- Mob bị damage: ở trên trời để tránh knockback
+                    myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 10000000, vhrp.Position.Z)
+                else
+                    -- Mob chưa bị damage: đứng sát mob
+                    myHrp.CFrame = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                end
+                vh:SetAttribute("PrevHealth", currentHealth)
+            else
+                -- Melee: tween mượt tới mob thay vì sky hop
+                shouldTween = true
+                block.CFrame = myHrp.CFrame
+                local targetCF = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                local dist = (block.Position - targetCF.Position).Magnitude
+                local tw = TS:Create(block, TweenInfo.new(math.max(dist/500, 0.05), Enum.EasingStyle.Linear), {CFrame = targetCF})
+                tw:Play()
+                tw.Completed:Wait()
+            end
+
+            BringMob()
+            return
         end
+
+        -- Fallback: tìm trong RS (boss raid)
         for _, v in next, RS:GetChildren() do
             local vhrp = v:FindFirstChild("HumanoidRootPart")
-            if v:IsA("Model") and vhrp and v.Name == x then 
-                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if myHrp then
-                    shouldTween = false
-                    myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, 10000000, vhrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 3, vhrp.Position.Z)
-                end
-                return 
-            end
+            if not (v:IsA("Model") and vhrp and v.Name == x) then continue end
+
+            pcall(function()
+                vhrp.Anchored = true
+                vhrp.AssemblyLinearVelocity = Vector3.zero
+                vhrp.AssemblyAngularVelocity = Vector3.zero
+            end)
+
+            shouldTween = true
+            block.CFrame = myHrp.CFrame
+            local targetCF = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+            local dist = (block.Position - targetCF.Position).Magnitude
+            local tw = TS:Create(block, TweenInfo.new(math.max(dist/500, 0.05), Enum.EasingStyle.Linear), {CFrame = targetCF})
+            tw:Play()
+            tw.Completed:Wait()
+            return
         end
-    end, function(e) warn("Modules ERROR:", e) end)
+
+    end, function(e) warn("KillMonster ERROR:", e) end)
 end
 --------------------------------------------------
 --------------------------------------------------
@@ -412,8 +449,8 @@ task.spawn(function()
             local currentPos = LP.Character.HumanoidRootPart.Position
             if (currentPos - lastPos).Magnitude < 2 then
                 stuckTime = stuckTime + 1
-                if stuckTime >= 30 then
-                    SetText("Stuck for 30s -> Hop Server!")
+                if stuckTime >= 120 then
+                    SetText("Stuck for 120s -> Hop Server!")
                     HopServer(5)
                     stuckTime = 0
                 end
@@ -450,11 +487,7 @@ local function MAX_CHESTS_FarmChestFast()
     local collected = 0
     for _, data in ipairs(sorted) do
         if getgenv().StopV3 then break end
-        if CheckTool("Fist of Darkness") then
-            SetText("Chest | Đã nhặt FOD! Xác nhận...")
-            task.wait(2)
-            if CheckTool("Fist of Darkness") then return "FOD" end
-        end
+        if CheckTool("Fist of Darkness") then return "FOD" end
         if collected >= MAX_CHESTS_PER_SERVER then
             SetText("Done " .. MAX_CHESTS_PER_SERVER .. " → Hop")
             HopServer(5)
@@ -470,18 +503,13 @@ local function MAX_CHESTS_FarmChestFast()
             attempts = attempts + 1
             if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
             if not chest or not chest.Parent then break end
-            if CheckTool("Fist of Darkness") then
-                SetText("Chest | Đã nhặt FOD! Xác nhận...")
-                task.wait(2)
-                if CheckTool("Fist of Darkness") then return "FOD" end
-            end
+            if CheckTool("Fist of Darkness") then return "FOD" end
             LP.Character.HumanoidRootPart.CFrame = chest.CFrame
-            task.wait(0.5)
+            task.wait(0.3)
         until not chest.CanTouch or attempts > 15
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
-            task.wait(0.3)
         end
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
@@ -495,7 +523,13 @@ local function MAX_CHESTS_FarmChestFast()
         end
     end
     SetText("Chest | Hết (" .. collected .. ") → Hop")
+    task.wait(2)
     HopServer(5)
+    task.wait(10)
+    if not getgenv().StopV3 then
+        SetText("Chest | Fallback Hop...")
+        HopServer(3)
+    end
 end
 local function BuyRandomFruit()
     SetText("Cyborg V3 | Random fruit...")
@@ -575,7 +609,8 @@ local function GetCyborgFirstTime()
         task.wait(1)
         if getCurrentRace() == "Cyborg" then SetText("Have Cyborg!") break end
 
-        if LP.Data.Fragments.Value >= 2500 then
+        local frags = LP.Data.Fragments.Value
+        if frags >= 2500 then
             RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy")
             task.wait(2)
             if getCurrentRace() == "Cyborg" then break end
@@ -583,6 +618,18 @@ local function GetCyborgFirstTime()
 
         local state = "NaN"
         pcall(function() state = readfile(cyborgFile) end)
+
+-- check frags nếu thiếu 
+        if frags < 2500 and state ~= "NaN" then
+            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "WARNING",
+                Text = "KHÔNG ĐỦ FRAGMENT MUA RACE (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags),
+                Duration = 5,
+                Icon = "rbxassetid://123456789",
+                Callback = nil
+            })
+        end
 
         if state == "NaN" then
             if not CheckSea(2) then
@@ -617,72 +664,75 @@ local function GetCyborgFirstTime()
                 end
             end
 
-        elseif state == "unlock" then
-            local frags = LP.Data.Fragments.Value
-            if frags >= 5000 or CheckTool("Microchip") or CheckTool("Core Brain") then
+elseif state == "unlock" then
+            if CheckTool("Microchip") or CheckTool("Core Brain") then
                 if not CheckSea(2) then
                     SetText("GET CYBORG | go Sea 2")
                     RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
                 else
-local orderFound = false
-for _, v in pairs(workspace.Enemies:GetChildren()) do
-    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-        orderFound = true
-        SetText("GET CYBORG | Attack Order")
-        EquipByTip("Melee")
-        -- Freeze Order tại chỗ
-        pcall(function()
-            v.HumanoidRootPart.Anchored = true
-            v.Humanoid.WalkSpeed = 0
-            v.Humanoid.JumpPower = 0
-        end)
-        repeat
-            task.wait(0.1)
-            -- Dùng tween mượt thay vì sky hop
-            local vhrp = v:FindFirstChild("HumanoidRootPart")
-            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-            if vhrp and myHrp then
-                shouldTween = true
-                block.CFrame = myHrp.CFrame
-                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
-                local dist = (block.Position - target.Position).Magnitude
-                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
-                tween:Play()
-                tween.Completed:Wait()
-            end
-            getgenv().Attack()
-        until not workspace.Enemies:FindFirstChild("Order")
-            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
-        -- Unfreeze sau khi xong
-        pcall(function() v.HumanoidRootPart.Anchored = false end)
-        break
-    end
-end
-                    if not orderFound then
-                        if not CheckTool("Microchip") and not CheckTool("Core Brain") then
-                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                local orderFound = false
+                for _, v in pairs(workspace.Enemies:GetChildren()) do
+                    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                        orderFound = true
+                        SetText("GET CYBORG | Attack Order")
+                        EquipByTip("Melee")
+                        pcall(function()
+                            v.HumanoidRootPart.Anchored = true
+                            v.Humanoid.WalkSpeed = 0
+                            v.Humanoid.JumpPower = 0
+                        end)
+                        repeat
+                            task.wait(0.1)
+                            local vhrp = v:FindFirstChild("HumanoidRootPart")
+                            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            if vhrp and myHrp then
+                                shouldTween = true
+                                block.CFrame = myHrp.CFrame
+                                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                                local dist = (block.Position - target.Position).Magnitude
+                                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
+                                tween:Play()
+                                tween.Completed:Wait()
+                            end
+                            getgenv().Attack()
+                        until not workspace.Enemies:FindFirstChild("Order")
+                            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
+                        pcall(function() v.HumanoidRootPart.Anchored = false end)
+                        SetText("GET CYBORG | Order đã chết! Chờ xử lý...")
+                        task.wait(5)
+                        if getCurrentRace() == "Cyborg" then
+                            SetText("Have Cyborg!")
+                            break
                         end
-                        pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
-                        RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
+                        break
                     end
                 end
-            else
-                if not CheckSea(3) then
-                    SetText("GET CYBORG | go Sea 3")
-                    RS.Remotes.CommF_:InvokeServer("TravelZou"); task.wait(10)
+                if not orderFound then
+                    if not CheckTool("Microchip") and not CheckTool("Core Brain") then
+                        local frags2 = LP.Data.Fragments.Value
+                        if frags2 >= 1000 then
+                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                        else
+                            SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
+                            game:GetService("StarterGui"):SetCore("SendNotification", {
+                                Title = "WARNING",
+                                Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
+                                Duration = 5,
+                                Icon = "rbxassetid://123456789",
+                                Callback = nil
+                            })
+                            task.wait(3)
+                            continue
+                        end
+                    end
+                    pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
+                    RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
                 end
             end
         end
     end
 end
-
-
-local world = worldMap[placeIdd]
-if world == "World1" or world == "World3" then
-    RS.Remotes.CommF_:InvokeServer("TravelDressrosa")
-end
 task.wait(1)
-
 
 if getCurrentRace() ~= "Cyborg" then
     if not HasUnlockedCyborg() then
@@ -760,5 +810,5 @@ if lv == 3 then
         getgenv().StopV3 = true
         break
     end
-
+end
 SetText("Done Cyborg V3!")
