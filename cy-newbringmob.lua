@@ -499,22 +499,9 @@ local function MAX_CHESTS_FarmChestFast()
         end
         local chest = data.obj
         if not chest or not chest.Parent or not chest.CanTouch then continue end
-
-        -- Freeze character trước khi tp
-        local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        local myHum = LP.Character and LP.Character:FindFirstChildOfClass("Humanoid")
-        if myHrp then
-            myHrp.Anchored = true
-            myHrp.AssemblyLinearVelocity = Vector3.zero
-        end
-        if myHum then
-            myHum.WalkSpeed = 0
-            myHum.JumpPower = 0
-        end
         for _, part in LP.Character:GetDescendants() do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
-
         local attempts = 0
         repeat
             attempts = attempts + 1
@@ -523,38 +510,11 @@ local function MAX_CHESTS_FarmChestFast()
             if CheckTool("Fist of Darkness") then
                 SetText("Chest | Đã nhặt FOD! Xác nhận...")
                 task.wait(2)
-                if CheckTool("Fist of Darkness") then
-                    -- Unfreeze trước khi return
-                    pcall(function()
-                        myHrp.Anchored = false
-                        myHum.WalkSpeed = 16
-                        myHum.JumpPower = 50
-                    end)
-                    return "FOD"
-                end
+                if CheckTool("Fist of Darkness") then return "FOD" end
             end
-            -- Tp tới chest + dash
             LP.Character.HumanoidRootPart.CFrame = chest.CFrame
-            pcall(function()
-                VIM:SendKeyEvent(true, "Q", false, game)
-                task.wait(0.05)
-                VIM:SendKeyEvent(false, "Q", false, game)
-            end)
-            task.wait(0.4) -- chậm lại 0.4s
+            task.wait(0.5)
         until not chest.CanTouch or attempts > 15
-
-        -- Unfreeze sau khi nhặt xong
-        pcall(function()
-            if myHrp then
-                myHrp.Anchored = false
-                myHrp.AssemblyLinearVelocity = Vector3.zero
-            end
-            if myHum then
-                myHum.WalkSpeed = 16
-                myHum.JumpPower = 50
-            end
-        end)
-
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
@@ -562,26 +522,12 @@ local function MAX_CHESTS_FarmChestFast()
         end
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
-                -- Unfreeze trước khi die
-                pcall(function()
-                    if myHrp then
-                        myHrp.Anchored = false
-                        myHrp.AssemblyLinearVelocity = Vector3.zero
-                    end
-                    if myHum then
-                        myHum.WalkSpeed = 16
-                        myHum.JumpPower = 50
-                    end
-                end)
                 LP.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
                 task.wait(3)
                 repeat task.wait(0.5)
                 until LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                     and LP.Character:FindFirstChildOfClass("Humanoid")
                     and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
-                -- Cập nhật lại myHrp và myHum sau khi respawn
-                myHrp = LP.Character:FindFirstChild("HumanoidRootPart")
-                myHum = LP.Character:FindFirstChildOfClass("Humanoid")
             end
         end
     end
@@ -686,13 +632,6 @@ local function GetCyborgFirstTime()
 -- check frags nếu thiếu 
         if frags < 2500 and state ~= "NaN" then
             SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "WARNING",
-                Text = "KHÔNG ĐỦ FRAGMENT MUA RACE (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags),
-                Duration = 5,
-                Icon = "rbxassetid://123456789",
-                Callback = nil
-            })
         end
 
         if state == "NaN" then
@@ -777,15 +716,8 @@ elseif state == "unlock" then
                             RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                         else
                             SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
-                                game:GetService("StarterGui"):SetCore("SendNotification", {
-                                    Title = "WARNING",
-                                    Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
-                                    Duration = 5,
-                                    Icon = "rbxassetid://123456789",
-                                    Callback = nil
-                                })
-                                task.wait(3)
-                                continue
+                            task.wait(3)
+                            continue
                         end
                     end
                     pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
