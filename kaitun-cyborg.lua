@@ -1,15 +1,18 @@
-
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
 end
 
+local RS_ = game:GetService("ReplicatedStorage")
+local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
+
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
+    pcall(function()
+        CommF_:InvokeServer("SetTeam", "Marines")
+    end)
     task.wait(1)
 end
-
 local placeIdd = game.PlaceId
 local worldMap = {[2753915549]="World1",[85211729168715]="World1",[4442272183]="World2",[79091703265657]="World2",[7449423635]="World3",[100117331123089]="World3"}
 
@@ -24,7 +27,9 @@ local LP = game:GetService("Players").LocalPlayer
 local MAX_CHESTS_PER_SERVER = 55
 
 Services = setmetatable({}, {__index = function(self, name)
-    local s, c = pcall(function() return cloneref(game:GetService(name)) end)
+    local s, c = pcall(function()
+        return (cloneref or function(x) return x end)(game:GetService(name))
+    end)
     if s then rawset(self, name, c) return c
     else error("Invalid Roblox Service: " .. tostring(name)) end
 end})
@@ -412,8 +417,8 @@ task.spawn(function()
             local currentPos = LP.Character.HumanoidRootPart.Position
             if (currentPos - lastPos).Magnitude < 2 then
                 stuckTime = stuckTime + 1
-                if stuckTime >= 30 then
-                    SetText("Stuck for 30s -> Hop Server!")
+                if stuckTime >= 120 then
+                    SetText("Stuck for 120s -> Hop Server!")
                     HopServer(5)
                     stuckTime = 0
                 end
@@ -425,7 +430,6 @@ task.spawn(function()
     end
 end)
 --------------------------------------------------
-
 local function HasUnlockedCyborg()
     return RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Check") == true
 end
@@ -487,9 +491,14 @@ local function MAX_CHESTS_FarmChestFast()
         end
     end
     SetText("Chest | Hết (" .. collected .. ") → Hop")
+    task.wait(2)
     HopServer(5)
+    task.wait(10)
+    if not getgenv().StopV3 then
+        SetText("Chest | Fallback Hop...")
+        HopServer(3)
+    end
 end
-
 local function BuyRandomFruit()
     SetText("Cyborg V3 | Random fruit...")
     TweenTo(CFrame.new(-422.202271, 72.4190063, 386.306335))
@@ -568,7 +577,8 @@ local function GetCyborgFirstTime()
         task.wait(1)
         if getCurrentRace() == "Cyborg" then SetText("Have Cyborg!") break end
 
-        if LP.Data.Fragments.Value >= 2500 then
+        local frags = LP.Data.Fragments.Value
+        if frags >= 2500 then
             RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy")
             task.wait(2)
             if getCurrentRace() == "Cyborg" then break end
@@ -576,6 +586,18 @@ local function GetCyborgFirstTime()
 
         local state = "NaN"
         pcall(function() state = readfile(cyborgFile) end)
+
+-- check frags nếu thiếu 
+        if frags < 2500 and state ~= "NaN" then
+            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "WARNING",
+                Text = "KHÔNG ĐỦ FRAGMENT MUA RACE (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags),
+                Duration = 5,
+                Icon = "rbxassetid://123456789",
+                Callback = nil
+            })
+        end
 
         if state == "NaN" then
             if not CheckSea(2) then
@@ -610,47 +632,75 @@ local function GetCyborgFirstTime()
                 end
             end
 
-        elseif state == "unlock" then
-            local frags = LP.Data.Fragments.Value
-            if frags >= 5000 or CheckTool("Microchip") or CheckTool("Core Brain") then
+elseif state == "unlock" then
+            if CheckTool("Microchip") or CheckTool("Core Brain") then
                 if not CheckSea(2) then
                     SetText("GET CYBORG | go Sea 2")
                     RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
                 else
-                    local orderFound = false
-                    for _, v in pairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                            orderFound = true
-                            SetText("GET CYBORG | Attack Order")
-                            EquipByTip("Melee")
-                            KillMonster("Order"); break
+                local orderFound = false
+                for _, v in pairs(workspace.Enemies:GetChildren()) do
+                    if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                        orderFound = true
+                        SetText("GET CYBORG | Attack Order")
+                        EquipByTip("Melee")
+                        pcall(function()
+                            v.HumanoidRootPart.Anchored = true
+                            v.Humanoid.WalkSpeed = 0
+                            v.Humanoid.JumpPower = 0
+                        end)
+                        repeat
+                            task.wait(0.1)
+                            local vhrp = v:FindFirstChild("HumanoidRootPart")
+                            local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                            if vhrp and myHrp then
+                                shouldTween = true
+                                block.CFrame = myHrp.CFrame
+                                local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                                local dist = (block.Position - target.Position).Magnitude
+                                local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
+                                tween:Play()
+                                tween.Completed:Wait()
+                            end
+                            getgenv().Attack()
+                        until not workspace.Enemies:FindFirstChild("Order")
+                            or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
+                        pcall(function() v.HumanoidRootPart.Anchored = false end)
+                        SetText("GET CYBORG | Order đã chết! Chờ xử lý...")
+                        task.wait(5)
+                        if getCurrentRace() == "Cyborg" then
+                            SetText("Have Cyborg!")
+                            break
                         end
-                    end
-                    if not orderFound then
-                        if not CheckTool("Microchip") and not CheckTool("Core Brain") then
-                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
-                        end
-                        pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
-                        RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
+                        break
                     end
                 end
-            else
-                if not CheckSea(3) then
-                    SetText("GET CYBORG | go Sea 3")
-                    RS.Remotes.CommF_:InvokeServer("TravelZou"); task.wait(10)
+                if not orderFound then
+                    if not CheckTool("Microchip") and not CheckTool("Core Brain") then
+                        local frags2 = LP.Data.Fragments.Value
+                        if frags2 >= 1000 then
+                            RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
+                        else
+                            SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
+                            game:GetService("StarterGui"):SetCore("SendNotification", {
+                                Title = "WARNING",
+                                Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
+                                Duration = 5,
+                                Icon = "rbxassetid://123456789",
+                                Callback = nil
+                            })
+                            task.wait(3)
+                            continue
+                        end
+                    end
+                    pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
+                    RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy"); task.wait(2)
                 end
             end
         end
     end
 end
-
-
-local world = worldMap[placeIdd]
-if world == "World1" or world == "World3" then
-    RS.Remotes.CommF_:InvokeServer("TravelDressrosa")
-end
 task.wait(1)
-
 
 if getCurrentRace() ~= "Cyborg" then
     if not HasUnlockedCyborg() then
@@ -723,10 +773,10 @@ while not getgenv().StopV3 do
         end
     end
 
-    if lv == 3 then
+if lv == 3 then
         SetText("Cyborg V3 DONE!")
+        getgenv().StopV3 = true
         break
     end
 end
-
 SetText("Done Cyborg V3!")
