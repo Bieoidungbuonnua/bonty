@@ -487,11 +487,7 @@ local function MAX_CHESTS_FarmChestFast()
     local collected = 0
     for _, data in ipairs(sorted) do
         if getgenv().StopV3 then break end
-        if CheckTool("Fist of Darkness") then
-            SetText("Chest | Đã nhặt FOD! Xác nhận...")
-            task.wait(2)
-            if CheckTool("Fist of Darkness") then return "FOD" end
-        end
+        if CheckTool("Fist of Darkness") then return "FOD" end
         if collected >= MAX_CHESTS_PER_SERVER then
             SetText("Done " .. MAX_CHESTS_PER_SERVER .. " → Hop")
             HopServer(5)
@@ -507,18 +503,13 @@ local function MAX_CHESTS_FarmChestFast()
             attempts = attempts + 1
             if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
             if not chest or not chest.Parent then break end
-            if CheckTool("Fist of Darkness") then
-                SetText("Chest | Đã nhặt FOD! Xác nhận...")
-                task.wait(2)
-                if CheckTool("Fist of Darkness") then return "FOD" end
-            end
+            if CheckTool("Fist of Darkness") then return "FOD" end
             LP.Character.HumanoidRootPart.CFrame = chest.CFrame
-            task.wait(0.5)
+            task.wait(0.3)
         until not chest.CanTouch or attempts > 15
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
-            task.wait(0.3)
         end
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
@@ -531,11 +522,10 @@ local function MAX_CHESTS_FarmChestFast()
             end
         end
     end
-SetText("Chest | Hết (" .. collected .. ") → Hop")
+    SetText("Chest | Hết (" .. collected .. ") → Hop")
     task.wait(2)
     HopServer(5)
     task.wait(10)
-    -- Fallback: nếu vẫn chưa hop thì force hop lại
     if not getgenv().StopV3 then
         SetText("Chest | Fallback Hop...")
         HopServer(3)
