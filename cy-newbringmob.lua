@@ -540,7 +540,7 @@ local function MAX_CHESTS_FarmChestFast()
                 task.wait(0.05)
                 VIM:SendKeyEvent(false, "Q", false, game)
             end)
-            task.wait(0.8) -- chậm lại 0.8s
+            task.wait(0.4) -- chậm lại 0.4s
         until not chest.CanTouch or attempts > 15
 
         -- Unfreeze sau khi nhặt xong
