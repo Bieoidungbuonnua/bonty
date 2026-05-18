@@ -632,6 +632,13 @@ local function GetCyborgFirstTime()
 -- check frags nếu thiếu 
         if frags < 2500 and state ~= "NaN" then
             SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "WARNING",
+                Text = "KHÔNG ĐỦ FRAGMENT MUA RACE (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags),
+                Duration = 5,
+                Icon = "rbxassetid://123456789",
+                Callback = nil
+            })
         end
 
         if state == "NaN" then
@@ -716,6 +723,13 @@ elseif state == "unlock" then
                             RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                         else
                             SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
+                            game:GetService("StarterGui"):SetCore("SendNotification", {
+                                Title = "WARNING",
+                                Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
+                                Duration = 5,
+                                Icon = "rbxassetid://123456789",
+                                Callback = nil
+                            })
                             task.wait(3)
                             continue
                         end
