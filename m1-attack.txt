@@ -116,7 +116,7 @@ local function GetClosestEnemy()
                 local hum = enemy:FindFirstChild("Humanoid")
                 if root and hum and hum.Health > 0 then
                     local dist = (rootPart.Position - root.Position).Magnitude
-                    if dist <= 6000 then
+                    if dist <= 500 then
                         KillTrap:Process(enemy)
                     end
                 end
@@ -143,113 +143,7 @@ local function GetClosestEnemy()
     return closestEnemy
 end
 
-local function Attack()
-    local character = LocalPlayer.Character
-    if not character then return end
-    
-    ---------
-    local tool = character:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-    ---------
-    if not tool or tool:GetAttribute("WeaponType") ~= "Melee" then return end
 
-    local enemy = GetClosestEnemy()
-    if enemy then
-        local regAttack = Remotes["RE/RegisterAttack"] or RegisterAttack
-        if regAttack then
-            regAttack:FireServer()
-        end
-
-        local enemyHead = enemy:FindFirstChild("Head")
-        if enemyHead then
-            local regHit = Remotes["RE/RegisterHit"] or RegisterHit
-            if regHit then
-                regHit:FireServer(enemy, enemyHead)
-            end
-            if NetModule and NetModule.RemoteEvent then
-                NetModule:RemoteEvent("RegisterHit"):FireServer(enemy, enemyHead)
-            end
-        end
-    end
-end
-
----------
-RunService.Stepped:Connect(function()
-    Attack()
-end)
----------
-
-local function GetBladeHits()
-    local targets = {}
-    local char = game.Players.LocalPlayer.Character
-    if not char then return targets end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return targets end
-
-    local enemiesFolder = workspace:FindFirstChild("Enemies")
-    local charsFolder = workspace:FindFirstChild("Characters")
-    
-    local function CheckFolder(folder)
-        if not folder then return end
-        for _, v in pairs(folder:GetChildren()) do
-            if v:IsA("Model") and v ~= char and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid") then
-                local dist = (v.HumanoidRootPart.Position - root.Position).Magnitude
-                if dist <= 6000 then
-                    KillTrap:Process(v)
-                end
-            end
-        end
-    end
-
-    CheckFolder(enemiesFolder)
-    CheckFolder(charsFolder)
-
-    for enemy, _ in pairs(KillTrap.LockedTargets) do
-        if KillTrap:Process(enemy) then
-            table.insert(targets, enemy)
-        end
-    end
-
-    return targets
-end
-
-local function AttackAll()
-    local player = game.Players.LocalPlayer
-    local character = player.Character
-    if not character then return end
-
-    ---------
-    local equippedWeapon = character:FindFirstChild("EquippedWeapon") or player.Backpack:FindFirstChildOfClass("Tool")
-    ---------
-    if not equippedWeapon then return end
-
-    local regAttack = Remotes["RE/RegisterAttack"] or RegisterAttack
-    local regHit = Remotes["RE/RegisterHit"] or RegisterHit
-    
-    local enemies = GetBladeHits()
-    if #enemies > 0 then
-        if regAttack then
-            regAttack:FireServer(-math.huge)
-        end
-        
-        local args = {nil, {}}
-        for i, v in pairs(enemies) do
-            if not args[1] then
-                args[1] = v:FindFirstChild("Head")
-            end
-            args[2][i] = {v, v:FindFirstChild("HumanoidRootPart")}
-        end
-        
-        if args[1] and regHit then
-            regHit:FireServer(unpack(args))
-        end
-    end
-end
-
----------
-RunService.Stepped:Connect(function()
-    AttackAll()
-end)
----------
 
 local Config = {
     AttackDistance = 65,
@@ -326,7 +220,7 @@ function FastAttack:GetBladeHits(Character, Distance)
         for _, Enemy in ipairs(Folder:GetChildren()) do
             if Enemy ~= Character and self:IsEntityAlive(Enemy) then
                 local root = Enemy:FindFirstChild("HumanoidRootPart")
-                if root and (Position - root.Position).Magnitude <= 6000 then
+                if root and (Position - root.Position).Magnitude <= 500 then
                     KillTrap:Process(Enemy)
                 end
             end
