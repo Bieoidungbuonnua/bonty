@@ -562,12 +562,26 @@ local function MAX_CHESTS_FarmChestFast()
         end
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
+                -- Unfreeze trước khi die
+                pcall(function()
+                    if myHrp then
+                        myHrp.Anchored = false
+                        myHrp.AssemblyLinearVelocity = Vector3.zero
+                    end
+                    if myHum then
+                        myHum.WalkSpeed = 16
+                        myHum.JumpPower = 50
+                    end
+                end)
                 LP.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
                 task.wait(3)
                 repeat task.wait(0.5)
                 until LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                     and LP.Character:FindFirstChildOfClass("Humanoid")
                     and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
+                -- Cập nhật lại myHrp và myHum sau khi respawn
+                myHrp = LP.Character:FindFirstChild("HumanoidRootPart")
+                myHum = LP.Character:FindFirstChildOfClass("Humanoid")
             end
         end
     end
