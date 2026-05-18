@@ -124,7 +124,7 @@ task.spawn(function()
     end
 end)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/naa-aneex211/-/refs/heads/main/m1-attack.txt"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Bieoidungbuonnua/bonty/refs/heads/main/m1-attack.txt"))()
 
 
 ReplicatedStorage = RS
