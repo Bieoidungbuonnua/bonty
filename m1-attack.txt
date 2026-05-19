@@ -1,3 +1,8 @@
+getgenv().D=false;local p,w,e=print,warn,error
+print=function(...)if D then p(...)end end
+warn=function(...)if D then w(...)end end
+error=function(...)if D then e(...)end end
+--
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
