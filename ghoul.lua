@@ -18,7 +18,13 @@ ConChoChisiti36 = {
 
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
-    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("SetTeam", "Marines")
+local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
+if Remotes then
+    local CommF = Remotes:WaitForChild("CommF_", 10)
+    if CommF then
+        CommF:InvokeServer("SetTeam", "Marines")
+    end
+end
     task.wait(1)
 end
 local placeIdd = game.PlaceId
@@ -211,15 +217,15 @@ end)
 if _G.FastAttack then
     local _ENV = (getgenv or getrenv or getfenv)()
 
-    local function SafeWaitForChild(parent, childName)
-        local success, result = pcall(function()
-            return parent:WaitForChild(childName)
-        end)
-        if not success or not result then
-            warn("noooooo: " .. childName)
-        end
-        return result
+local function SafeWaitForChild(parent, childName)
+    local success, result = pcall(function()
+        return parent:WaitForChild(childName, 10) -- ✅ timeout 10s
+    end)
+    if not success or not result then
+        warn("Không tìm thấy: " .. childName)
     end
+    return result
+end
 
     local function WaitChilds(path, ...)
         local last = path
@@ -429,9 +435,19 @@ local L = P.LocalPlayer
 local RS = game:GetService("ReplicatedStorage")
 local W = workspace
 local M = RS:WaitForChild("Modules")
-local CU = pcall(require, M:WaitForChild("CombatUtil")) and require(M.CombatUtil) or nil
-local WD = pcall(require, M:WaitForChild("WeaponData")) and require(M.WeaponData) or nil
-if not CU then return end
+local CU, WD = nil, nil
+
+task.spawn(function()
+    local ok1, result1 = pcall(function()
+        return require(M:WaitForChild("CombatUtil", 10))
+    end)
+    if ok1 then CU = result1 else warn("Không load được CombatUtil") end
+
+    local ok2, result2 = pcall(function()
+        return require(M:WaitForChild("WeaponData", 10))
+    end)
+    if ok2 then WD = result2 else warn("Không load được WeaponData") end
+end)
 local N = M:FindFirstChild("Net")
 local RA = N and (N:FindFirstChild("RE/RegisterAttack") or N:FindFirstChild("RegisterAttack"))
 local RH = N and (N:FindFirstChild("RE/RegisterHit") or N:FindFirstChild("RegisterHit"))	
@@ -717,11 +733,12 @@ FastAttack = loadstring([[
                 return
             end
             
-            local args = {
-                [1] = nil;
-                [2] = {},
-                [4] = '078da341'
-            }
+local args = {
+    [1] = nil,
+    [2] = {},
+    [3] = nil,
+    [4] = "078da341"
+}
             for r, v in pairs(bladehits) do
                 
                 
