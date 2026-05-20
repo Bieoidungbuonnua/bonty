@@ -1,6 +1,3 @@
-
-
-
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...)
         return ...
@@ -1216,18 +1213,21 @@ end
 
 
 local function FindAndKillCursedCaptain()
-    captain =  GetConnectionEnemies("Cursed Captain")
+    captain = GetConnectionEnemies("Cursed Captain")
     if captain then
         if LP:GetAttribute("CurrentLocation") ~= "Cursed Ship" then
-        SetText("Go Cursed Ship...")
-        pcall(function()
-            RS.Remotes.CommF_:InvokeServer(
-                "requestEntrance",
-                Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)
-            )
-        end)
-        task.wait(1)
-        else
+            SetText("Go Cursed Ship...")
+            pcall(function()
+                RS.Remotes.CommF_:InvokeServer(
+                    "requestEntrance",
+                    Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)
+                )
+            end)
+            task.wait(3)
+            EquipByTip("Melee")
+            task.wait(0.5)
+        end
+
         SetText("Attack Cursed Captain!")
         local hrp = captain:FindFirstChild("HumanoidRootPart")
 
@@ -1238,20 +1238,19 @@ local function FindAndKillCursedCaptain()
             if not hrp then break end
 
             local hp = math.floor(captain.Humanoid.Health / captain.Humanoid.MaxHealth * 100)
-            SetText("Atack Cursed Captain HP: " .. hp .. "%")
+            SetText("Attack Cursed Captain HP: " .. hp .. "%")
             EquipByTip("Melee")
             KillMonster("Cursed Captain")
-            
+
         until not captain.Parent or captain.Humanoid.Health <= 0 or getgenv().StopV2
 
         if captain and captain.Parent and captain.Humanoid.Health <= 0 then
             SetText(" Cursed Captain Die")
             return true
         end
-       end
-    else 
-    SetText("ko co boss")
-    HopToServerByAPI("Cursed Captain", 12, 2)
+    else
+        SetText("Ko co boss")
+        HopToServerByAPI("Cursed Captain", 12, 2)
     end
 
     return false
