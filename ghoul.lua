@@ -1,6 +1,3 @@
-
-
-
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...)
         return ...
@@ -1261,7 +1258,7 @@ local function FindAndKillCursedCaptain()
             return true
         end
     else
-        SetText("Ko co boss")
+        SetText("No Boss")
         HopToServerByAPI("Cursed Captain", 12, 2)
     end
 
