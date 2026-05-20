@@ -1254,7 +1254,7 @@ local function FarmEctoplasm()
                or v.Humanoid.Health <= 0
                or getgenv().StopV2
     else
-        task.wait(1)
+        task.wait(0.5)
     end
 
 end
@@ -1271,7 +1271,7 @@ local function FindAndKillCursedCaptain()
                     Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)
                 )
             end)
-            task.wait(1)
+            task.wait(0.5)
             EquipByTip("Melee")
             task.wait(0.5)
         end
