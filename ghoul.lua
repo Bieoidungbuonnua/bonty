@@ -86,7 +86,7 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
     waitTime = waitTime or 25
 
     if filterNames == "Cursed Captain" then
-        apiUrl = 'http://fi11.bot-hosting.net:20758/api/name=cursedcaptain'
+        apiUrl = 'http://mbasic7.pikamc.vn:25082/api/name=cursedcaptain?apikey=CONCACDUMAMAY'
     end
 
     if tick() - getgenv().LastApiRefresh > 600 then
