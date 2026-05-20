@@ -103,13 +103,13 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
             responseBody = req.Body
         end
         local data = HttpService:JSONDecode(responseBody)
-        if not data or not data.success or type(data.data) ~= "table" then
+        if not data or not data.success or type(data.data) ~= "table" or type(data.data.data) ~= "table" then
             print(" API trả về dữ liệu sai")
             return false
         end
         local seen = {}
         local servers = {}
-        for _, entry in ipairs(data.data) do
+        for _, entry in ipairs(data.data.data) do
             local jobId = entry.jobid
             local placeId = entry.placeid
             local players = tonumber(entry.player) or 99
