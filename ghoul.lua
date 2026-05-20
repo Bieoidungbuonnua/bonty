@@ -1241,18 +1241,24 @@ local function FindAndKillCursedCaptain()
         local hrp = captain:FindFirstChild("HumanoidRootPart")
 
         repeat
-            task.wait(0.3)
+            task.wait(0.5)
             if getgenv().StopV2 then break end
+            if not captain or not captain.Parent then break end
             hrp = captain:FindFirstChild("HumanoidRootPart")
             if not hrp then break end
+
+            local dist = (LP.Character.HumanoidRootPart.Position - hrp.Position).Magnitude
+            if dist > 60 then
+                TweenTo(hrp.CFrame * CFrame.new(0, 0, 5))
+                task.wait(1)
+            end
 
             local hp = math.floor(captain.Humanoid.Health / captain.Humanoid.MaxHealth * 100)
             SetText("Attack Cursed Captain HP: " .. hp .. "%")
             EquipByTip("Melee")
             KillMonster("Cursed Captain")
 
-        until not captain.Parent or captain.Humanoid.Health <= 0 or getgenv().StopV2
-
+        until not captain or not captain.Parent or captain.Humanoid.Health <= 0 or getgenv().StopV2
         if captain and captain.Parent and captain.Humanoid.Health <= 0 then
             SetText(" Cursed Captain Die")
             return true
