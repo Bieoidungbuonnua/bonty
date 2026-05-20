@@ -1297,7 +1297,7 @@ local function GetGhoulFirstTime()
 
 
         if getCurrentRace() == "Ghoul" then
-            SetText("Đã có Ghoul!")
+            SetText("Done Ghoul!")
             break
         end
 
@@ -1433,7 +1433,7 @@ for index, targetRace in getgenv().RaceList do
     if getgenv().StopV2 then SetText(" Stop ") break end
 
     if HasRaceV2(targetRace) then
-        SetText("Có Ghoul v2 rồi !!!")
+        SetText("Done Ghoul V2")
     end
 
 
