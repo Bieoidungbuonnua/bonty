@@ -1183,7 +1183,7 @@ end
 local function FarmEctoplasm()
 
     if LP:GetAttribute("CurrentLocation") ~= "Cursed Ship" then
-        SetText("Đi vào Cursed Ship...")
+        SetText("Go Cursed Ship...")
         pcall(function()
             RS.Remotes.CommF_:InvokeServer(
                 "requestEntrance",
@@ -1219,7 +1219,7 @@ local function FindAndKillCursedCaptain()
     captain =  GetConnectionEnemies("Cursed Captain")
     if captain then
         if LP:GetAttribute("CurrentLocation") ~= "Cursed Ship" then
-        SetText("Đi vào Cursed Ship...")
+        SetText("Go Cursed Ship...")
         pcall(function()
             RS.Remotes.CommF_:InvokeServer(
                 "requestEntrance",
