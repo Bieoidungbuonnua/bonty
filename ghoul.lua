@@ -77,6 +77,35 @@ getgenv().FailedJobIds = {}
 getgenv().LastApiRefresh = 0
 local apiUrl = nil
 
+local HoppedJobIds = {}
+local HopCount = 0
+
+local function LoadHoppedJobIds()
+    pcall(function()
+        local ok, data = pcall(readfile, "hopped_servers.json")
+        if ok and data and data ~= "" then
+            local decoded = game:GetService("HttpService"):JSONDecode(data)
+            if type(decoded) == "table" then
+                for _, jobId in ipairs(decoded) do
+                    HoppedJobIds[jobId] = true
+                end
+            end
+        end
+    end)
+end
+
+local function SaveHoppedJobIds()
+    pcall(function()
+        local list = {}
+        for jobId, _ in pairs(HoppedJobIds) do
+            table.insert(list, jobId)
+        end
+        writefile("hopped_servers.json", game:GetService("HttpService"):JSONEncode(list))
+    end)
+end
+
+LoadHoppedJobIds()
+
 local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
     isHopping = true
     maxPlayers = maxPlayers or 10
@@ -140,6 +169,7 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
 
             if jobId == game.JobId then continue end
             if getgenv().FailedJobIds[jobId] then continue end
+            if HoppedJobIds[jobId] then continue end
             if players >= maxPlayers then continue end
 
             triedCount = triedCount + 1
@@ -148,6 +178,15 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
                 game:GetService("ReplicatedStorage"):WaitForChild("__ServerBrowser"):InvokeServer("teleport", jobId)
             end)
             if teleportOk then
+                HopCount = HopCount + 1
+                HoppedJobIds[jobId] = true
+                if HopCount >= 10 then
+                    HopCount = 0
+                    HoppedJobIds = {}
+                    writefile("hopped_servers.json", "[]")
+                else
+                    SaveHoppedJobIds()
+                end
                 task.wait(15)
                 return true
             else
