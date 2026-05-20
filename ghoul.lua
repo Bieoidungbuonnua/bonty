@@ -1,3 +1,6 @@
+
+
+
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...)
         return ...
@@ -1187,8 +1190,13 @@ local function FarmEctoplasm()
                 Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)
             )
         end)
-        task.wait(1)
+        task.wait(3)
+        EquipByTip("Melee")
+        task.wait(0.5)
     end
+
+    EquipByTip("Melee")
+    task.wait(0.3)
 
     local ectoMobs = {
         "Ship Deckhand",
@@ -1200,13 +1208,17 @@ local function FarmEctoplasm()
 
     v = GetConnectionEnemies(ectoMobs)
     if v then
+        EquipByTip("Melee")
         BringMob()
-        repeat task.wait() KillMonster(v.Name)
+        repeat
+            task.wait()
+            EquipByTip("Melee")
+            KillMonster(v.Name)
         until not v.Parent
                or v.Humanoid.Health <= 0
                or getgenv().StopV2
     else
-        wait(1)
+        task.wait(1)
     end
 
 end
