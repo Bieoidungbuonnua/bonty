@@ -127,7 +127,7 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
         end
         local filtered = {}
         for _, s in ipairs(servers) do
-            if s.placeid == CURRENT_PLACE_ID then
+            if tostring(s.placeid) == tostring(CURRENT_PLACE_ID) then
                 table.insert(filtered, s)
             end
         end
@@ -1258,8 +1258,27 @@ local function FindAndKillCursedCaptain()
             return true
         end
     else
-        SetText("No Boss")
-        HopToServerByAPI("Cursed Captain", 12, 2)
+        SetText("No Boss...")
+        pcall(function()
+            RS.Remotes.CommF_:InvokeServer(
+                "requestEntrance",
+                Vector3.new(923.21252441406, 126.9760055542, 32852.83203125)
+            )
+        end)
+        task.wait(3)
+        -- chờ boss spawn tối đa 60s trước khi hop server
+        local waited = 0
+        repeat
+            task.wait(5)
+            waited = waited + 5
+            SetText("Wait Boss... " .. waited .. "s")
+            captain = GetConnectionEnemies("Cursed Captain")
+        until captain or waited >= 60 or getgenv().StopV2
+
+        if not captain then
+            SetText("No Boss, Hop...")
+            HopToServerByAPI("Cursed Captain", 12, 25)
+        end
     end
 
     return false
