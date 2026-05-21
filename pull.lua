@@ -20,29 +20,20 @@ local Char    = LP.Character or LP.CharacterAdded:Wait()
 local HRP     = Char:WaitForChild("HumanoidRootPart")
 LP.CharacterAdded:Connect(function(c) Char = c; HRP = c:WaitForChild("HumanoidRootPart") end)
 
--- ─── Auto join team Marines ───────────────────────────────────────────────────
-local function AutoJoinTeam()
-    if LP.Team then return end
-    pcall(function() RS.Remotes.CommF_:InvokeServer("SetTeam", "Marines") end)
-    local L207 = LP:WaitForChild("PlayerGui"):FindFirstChild("ChooseTeam", true)
-    local L208 = LP:WaitForChild("PlayerGui"):FindFirstChild("UIController", true)
-    if L207 and L207.Visible then
-        repeat
-            task.wait(1)
-            if L207 and L207.Visible and L208 then
-                for _, fn in pairs(getgc(true)) do
-                    if type(fn) == "function" and getfenv(fn).script == L208 then
-                        local c = getconstants(fn)
-                        pcall(function()
-                            if (c[1] == "Marines") and #c == 1 then fn("Marines") end
-                        end)
-                    end
-                end
-            end
-        until LP.Team
-    end
+-- ─── Auto join team Marines (blocking — giống bigupcy.lua) ───────────────────
+-- Gọi SetTeam liên tục cho đến khi character load xong
+local CommF_ = RS:WaitForChild("Remotes"):WaitForChild("CommF_")
+while not LP.Character
+    or not LP.Character:FindFirstChild("HumanoidRootPart") do
+    pcall(function()
+        CommF_:InvokeServer("SetTeam", "Marines")
+    end)
+    task.wait(1)
 end
-task.spawn(AutoJoinTeam)
+-- Gọi thêm 1 lần sau khi character sẵn sàng để chắc chắn
+pcall(function() CommF_:InvokeServer("SetTeam", "Marines") end)
+task.wait(0.5)
+
 
 -- ─── Config ───────────────────────────────────────────────────────────────────
 local Config = {
