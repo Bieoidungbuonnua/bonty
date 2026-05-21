@@ -38,7 +38,7 @@ LP.CharacterAdded:Connect(function(c) Char = c; HRP = c:WaitForChild("HumanoidRo
 -- ─── Config ───────────────────────────────────────────────────────────────────
 local Config = {
     Remotes = { CommF = "CommF_", CommE = "CommE", ServerBrowser = "__ServerBrowser" },
-    HopAPI  = { Mirage = "http://fi11.bot-hosting.net:20758/api/name=Mirage" },
+    HopAPI  = { Mirage = "http://mbasic7.pikamc.vn:25082/api/name=mirage?apikey=CONCACDUMAMAY" },
     MaxHopCount   = 10,
     MaxHopPlayers = 10,
     HopWaitTime   = 25,
