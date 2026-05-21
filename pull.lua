@@ -1,13 +1,11 @@
--- Pull Lever | Temple of Time | Blox Fruits | Meyy Hub
+-- Pull Lever | Temple of Time | Blox Fruits | Mtr Chill
 -- Compat: Fluxus / Delta / Codex / Arceus X / Solara
 
+-- Chỉ chờ game load + RS/Remotes — KHÔNG check character (character chỉ có sau khi join team)
 repeat task.wait(1) until
     game:GetService("ReplicatedStorage") and
     game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and
-    game.Players.LocalPlayer and
-    game.Players.LocalPlayer.Character and
-    game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and
-    not game.Players.LocalPlayer.PlayerGui:FindFirstChild("LoadingScreen")
+    game.Players.LocalPlayer
 
 -- Services
 local RS      = game:GetService("ReplicatedStorage")
@@ -16,12 +14,9 @@ local Players = game:GetService("Players")
 local HS      = game:GetService("HttpService")
 local Lighting = game:GetService("Lighting")
 local LP      = Players.LocalPlayer
-local Char    = LP.Character or LP.CharacterAdded:Wait()
-local HRP     = Char:WaitForChild("HumanoidRootPart")
-LP.CharacterAdded:Connect(function(c) Char = c; HRP = c:WaitForChild("HumanoidRootPart") end)
 
--- ─── Auto join team Marines (blocking — giống bigupcy.lua) ───────────────────
--- Gọi SetTeam liên tục cho đến khi character load xong
+-- ─── Auto join team Marines (y hệt bigupcy.lua) ──────────────────────────────
+-- Character chỉ spawn sau khi chọn team → loop này vừa join team vừa chờ character
 local CommF_ = RS:WaitForChild("Remotes"):WaitForChild("CommF_")
 while not LP.Character
     or not LP.Character:FindFirstChild("HumanoidRootPart") do
@@ -30,9 +25,14 @@ while not LP.Character
     end)
     task.wait(1)
 end
--- Gọi thêm 1 lần sau khi character sẵn sàng để chắc chắn
 pcall(function() CommF_:InvokeServer("SetTeam", "Marines") end)
 task.wait(0.5)
+
+-- Bind Char/HRP sau khi đã có character
+local Char = LP.Character
+local HRP  = Char:WaitForChild("HumanoidRootPart")
+LP.CharacterAdded:Connect(function(c) Char = c; HRP = c:WaitForChild("HumanoidRootPart") end)
+
 
 
 -- ─── Config ───────────────────────────────────────────────────────────────────
