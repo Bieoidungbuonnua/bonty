@@ -1019,7 +1019,7 @@ local function GetCyborgFirstTime()
                                 if vhrp and myHrp then
                                     shouldTween = true
                                     block.CFrame = myHrp.CFrame
-                                    local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
+                                    local target = CFrame.new(vhrp.Position + Vector3.new(0, 15, 0))
                                     local dist = (block.Position - target.Position).Magnitude
                                     local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
                                     tween:Play()
