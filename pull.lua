@@ -1,3 +1,6 @@
+-- Pull Lever | Temple of Time | Blox Fruits | Meyy Hub
+-- Compat: Fluxus / Delta / Codex / Arceus X / Solara
+
 repeat task.wait(1) until
     game:GetService("ReplicatedStorage") and
     game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and
@@ -572,15 +575,60 @@ end
 -- ─── Mirage ───────────────────────────────────────────────────────────────────
 local Mirage = {}
 do
-    local MIRAGE_CENTER_FB = CFrame.new(-1616.5, 148, -372.5)
+    -- Tiki Island bypass TP position (Sea 3) — rút ngắn tween đến Mirage
+    local TIKI_POS    = CFrame.new(-1335.5, 148.8, 506.2)
+    -- Fallback center nếu không detect được pivot
+    local MIRAGE_FB   = CFrame.new(-1616.5, 148, -372.5)
 
+    local UIS = game:GetService("UserInputService")
+    local VIM = game:GetService("VirtualInputManager")
+
+    -- ── Helpers ──────────────────────────────────────────────────────────────
     local function IsNight()
-        local c = Lighting.ClockTime; return c >= 16 or c < 5
+        local t = Lighting.ClockTime; return t >= 18 or t < 6
     end
     local function IsFullMoon()
         return Lighting:GetAttribute("MoonPhase") == 5
     end
+    local function MoonDir()
+        -- hướng mặt trăng từ vị trí Sky
+        local sky = Lighting:FindFirstChildWhichIsA("Sky")
+        if sky then
+            local moon = sky:GetAttribute("MoonDirection")
+            if moon and typeof(moon) == "Vector3" then return moon end
+        end
+        -- fallback: trăng thường ở hướng bắc - trên
+        return Vector3.new(0, 0.7, -1).Unit
+    end
 
+    -- ── ESP label (Billboard) ─────────────────────────────────────────────────
+    local espBillboard = nil
+    local function ShowESP(part, label, color)
+        pcall(function()
+            if espBillboard then espBillboard:Destroy() end
+            local bb = Instance.new("BillboardGui")
+            bb.Name = "PLMirageESP"
+            bb.AlwaysOnTop = true
+            bb.Size = UDim2.new(0, 160, 0, 30)
+            bb.StudsOffset = Vector3.new(0, 6, 0)
+            bb.Adornee = part
+            local lbl = Instance.new("TextLabel", bb)
+            lbl.Size = UDim2.new(1, 0, 1, 0)
+            lbl.BackgroundTransparency = 0.4
+            lbl.BackgroundColor3 = Color3.fromRGB(10, 10, 20)
+            lbl.TextColor3 = color or Color3.fromRGB(100, 200, 255)
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 14
+            lbl.Text = label or "⬡ Mirage"
+            bb.Parent = LP.PlayerGui
+            espBillboard = bb
+        end)
+    end
+    local function HideESP()
+        pcall(function() if espBillboard then espBillboard:Destroy(); espBillboard = nil end end)
+    end
+
+    -- ── Detect Mirage Island ──────────────────────────────────────────────────
     function Mirage.Detect()
         local map = workspace:FindFirstChild("Map")
         if map then
@@ -596,81 +644,84 @@ do
         return nil
     end
 
-    function Mirage.GetCenter(obj)
-        if not obj then return MIRAGE_CENTER_FB end
+    -- ── Get island center CFrame ──────────────────────────────────────────────
+    local function GetIslandCenter(obj)
+        if not obj then return MIRAGE_FB end
         local ok, piv = pcall(function() return obj:GetPivot() end)
         if ok and piv then return piv end
         for _, v in ipairs(obj:GetDescendants()) do
             if v:IsA("BasePart") then return v.CFrame end
         end
-        return MIRAGE_CENTER_FB
+        return MIRAGE_FB
     end
 
-    function Mirage.FindGear(obj)
-        local root = obj or (workspace.Map and workspace.Map:FindFirstChild("MysticIsland")) or workspace
-        for _, v in ipairs(root:GetDescendants()) do
-            if v:IsA("MeshPart") and v.MeshId == "rbxassetid://10153114969" then return v end
+    -- ── BypassTP → Tiki Island → rút ngắn tween ──────────────────────────────
+    local function BypassToTiki()
+        Utils.Info("Mirage: BypassTP → Tiki Island")
+        -- dùng TeleportToSpawn rồi warp tới Tiki trước
+        pcall(function()
+            if LP:GetAttribute("ExactLocation") == "Submerged Island" then
+                RS.Remotes.CommF_:InvokeServer("TeleportToSpawn"); task.wait(6)
+            end
+        end)
+        -- Snap thẳng đến Tiki (bypass kiểm tra server)
+        if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+            LP.Character.HumanoidRootPart.CFrame = TIKI_POS
         end
+        task.wait(1.5)
+    end
+
+    -- ── Camera lock vào trăng ─────────────────────────────────────────────────
+    local camLock = false
+    local function LockCameraToMoon()
+        Utils.Info("Mirage: Locking camera to moon")
+        camLock = true
+        local cam = workspace.CurrentCamera
+        cam.CameraType = Enum.CameraType.Scriptable
+        task.spawn(function()
+            while camLock do
+                pcall(function()
+                    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local moonDir = MoonDir()
+                        local eyePos  = hrp.Position + Vector3.new(0, 2, 0)
+                        local lookAt  = eyePos + moonDir * 1000
+                        cam.CFrame    = CFrame.new(eyePos, lookAt)
+                    end
+                end)
+                task.wait(0.1)
+            end
+            cam.CameraType = Enum.CameraType.Custom
+        end)
+    end
+    local function UnlockCamera()
+        camLock = false
+        pcall(function() workspace.CurrentCamera.CameraType = Enum.CameraType.Custom end)
+    end
+
+    -- ── Tìm Blue Gear ─────────────────────────────────────────────────────────
+    local function FindGear(islandObj)
+        local root = islandObj
+            or (workspace.Map and workspace.Map:FindFirstChild("MysticIsland"))
+            or workspace
+        -- Blue Gear mesh ID
+        for _, v in ipairs(root:GetDescendants()) do
+            if v:IsA("MeshPart") and v.MeshId:find("10153114969") then return v end
+        end
+        -- fallback by name
         for _, v in ipairs(workspace:GetDescendants()) do
             if v.Name:lower():find("gear") and v:IsA("BasePart") then return v end
         end
         return nil
     end
 
-    function Mirage.AlignCameraToMoon()
-        pcall(function()
-            local cam = workspace.CurrentCamera
-            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local pos = LP.Character.HumanoidRootPart.Position
-                local target = pos + Vector3.new(0, 1, -0.5).Unit * 500
-                local tw = TS:Create(cam, TweenInfo.new(1, Enum.EasingStyle.Sine), {CFrame = CFrame.new(pos, target)})
-                tw:Play(); tw.Completed:Wait()
-            end
-        end)
-    end
-
-    function Mirage.WaitForNight()
-        Utils.Info("Mirage: waiting for night + full moon")
-        while not IsNight() or not IsFullMoon() do
-            task.wait(2)
-            Utils.Info("Mirage: time=" .. math.floor(Lighting.ClockTime) ..
-                " moon=" .. tostring(Lighting:GetAttribute("MoonPhase")))
-        end
-        Utils.Success("Mirage: Night + Full Moon!")
-    end
-
-    function Mirage.WaitForResonance()
-        Utils.Info("Mirage: waiting for resonance...")
-        local done = false
-        local conn = LP.PlayerGui.DescendantAdded:Connect(function(obj)
-            if (obj:IsA("TextLabel") or obj:IsA("TextButton")) then
-                if obj.Text:find("resonated") then done = true end
-            end
-        end)
-        local t0 = tick()
-        repeat
-            task.wait(1)
-            for _, v in ipairs(LP.PlayerGui:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Text:find("resonated") then done = true end
-            end
-        until done or tick() - t0 >= 120
-        pcall(function() conn:Disconnect() end)
-        if not done then Utils.Warn("Mirage: resonance timeout, continuing") end
-        return done
-    end
-
-    function Mirage.Run()
-        Utils.Info("Mirage: starting sequence")
-        local obj = Utils.Retry(Mirage.Detect, 10, 3, "Mirage.Detect")
-        if not obj then Utils.Error("Mirage: not detected"); return false end
-        Utils.Success("Mirage: " .. obj.Name .. " detected")
-        TweenMove.SafeTweenTo(Mirage.GetCenter(obj), 20); task.wait(1)
-        Mirage.WaitForNight(); task.wait(1)
-        Mirage.AlignCameraToMoon(); task.wait(2)
-        Mirage.WaitForResonance(); task.wait(1)
-        local gear = Utils.Retry(function() return Mirage.FindGear(obj) end, 10, 2, "FindGear")
-        if not gear then Utils.Error("Mirage: Gear not found"); return false end
-        TweenMove.SafeTweenTo(gear.CFrame * CFrame.new(0, 2, 0), 10); task.wait(1)
+    -- ── Nhặt Gear ─────────────────────────────────────────────────────────────
+    local function PickupGear(gear)
+        if not gear or not gear.Parent then return false end
+        Utils.Info("Mirage: ESP Blue Gear → tweening")
+        ShowESP(gear, "🔵 Blue Gear", Color3.fromRGB(80, 160, 255))
+        TweenMove.SafeTweenTo(gear.CFrame * CFrame.new(0, 1.5, 0), 10)
+        task.wait(0.5)
         local picked = false
         pcall(function()
             for _, v in ipairs(gear:GetDescendants()) do
@@ -683,11 +734,123 @@ do
             end
         end)
         if not picked then
-            LP.Character.HumanoidRootPart.CFrame = gear.CFrame * CFrame.new(0, 0.5, 0)
+            -- fallback: snap đến gear
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                LP.Character.HumanoidRootPart.CFrame = gear.CFrame
+            end
             task.wait(0.5)
         end
+        HideESP()
         task.wait(2)
-        if Cond.HasGear() then Utils.Success("Mirage: Gear collected!"); return true end
+        return Cond.HasGear()
+    end
+
+    -- ── Wait resonance (khi camera nhìn trăng) ───────────────────────────────
+    local function WaitResonance()
+        Utils.Info("Mirage: waiting for resonance...")
+        local done = false
+        local conn = LP.PlayerGui.DescendantAdded:Connect(function(obj)
+            if (obj:IsA("TextLabel") or obj:IsA("TextButton"))
+                and tostring(obj.Text):lower():find("resonat") then
+                done = true
+            end
+        end)
+        local t0 = tick()
+        repeat
+            task.wait(1)
+            for _, v in ipairs(LP.PlayerGui:GetDescendants()) do
+                if v:IsA("TextLabel") and tostring(v.Text):lower():find("resonat") then
+                    done = true; break
+                end
+            end
+        until done or tick() - t0 >= 90
+        pcall(function() conn:Disconnect() end)
+        if not done then Utils.Warn("Mirage: resonance timeout") end
+        return done
+    end
+
+    -- ── Main Run ──────────────────────────────────────────────────────────────
+    function Mirage.Run(island)
+        Utils.Info("Mirage: Run() start")
+        local obj = island or Mirage.Detect()
+        if not obj then Utils.Error("Mirage: island not found"); return false end
+
+        local center = GetIslandCenter(obj)
+
+        -- 1. BypassTP đến Tiki Island để rút ngắn tween
+        BypassToTiki()
+
+        -- 2. ESP island + Tween đến trung tâm đảo (speed 350 như autocy)
+        ShowESP(
+            obj:IsA("BasePart") and obj or obj:FindFirstChildWhichIsA("BasePart"),
+            "🏝 Mirage Island",
+            Color3.fromRGB(100, 255, 180)
+        )
+        Utils.Info("Mirage: Tweening to island center")
+        TweenMove.SafeTweenTo(center, 40)
+        task.wait(1)
+
+        -- 3. Đứng ở giữa đảo — chờ trời tối + trăng tròn
+        UI.SetStatus("Waiting for night...")
+        Utils.Info("Mirage: Waiting for night + full moon")
+        local t0 = tick()
+        while not IsNight() or not IsFullMoon() do
+            task.wait(3)
+            -- kiểm tra đảo còn tồn tại không
+            if not obj or not obj.Parent then
+                HideESP(); UnlockCamera()
+                Utils.Warn("Mirage: Island disappeared!"); return false
+            end
+            -- giữ vị trí trung tâm đảo
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                local dist = (LP.Character.HumanoidRootPart.Position - center.Position).Magnitude
+                if dist > 20 then
+                    LP.Character.HumanoidRootPart.CFrame = center
+                end
+            end
+            Utils.Info(string.format("Mirage: clock=%.1f moon=%s",
+                Lighting.ClockTime, tostring(Lighting:GetAttribute("MoonPhase"))))
+        end
+        Utils.Success("Mirage: Night + Full Moon!")
+
+        -- 4. Lock camera vào trăng
+        UI.SetStatus("Locking camera to moon...")
+        LockCameraToMoon()
+        task.wait(1)
+
+        -- 5. Chờ resonance
+        UI.SetStatus("Waiting resonance...")
+        WaitResonance()
+        task.wait(1)
+
+        -- 6. Chờ đến khi sáng (Gear xuất hiện sau resonance lúc sáng)
+        Utils.Info("Mirage: Waiting for daylight to find gear")
+        local gearWait = tick()
+        local gear = nil
+        repeat
+            task.wait(2)
+            gear = FindGear(obj)
+            if not obj or not obj.Parent then
+                UnlockCamera(); HideESP()
+                Utils.Warn("Mirage: Island lost while waiting for gear"); return false
+            end
+        until gear or tick() - gearWait >= 120
+
+        UnlockCamera()
+
+        if not gear then
+            Utils.Warn("Mirage: Gear not found after 120s"); return false
+        end
+
+        -- 7. Nhặt Blue Gear
+        UI.SetStatus("Picking up Blue Gear...")
+        local picked = PickupGear(gear)
+        if picked then
+            Utils.Success("Mirage: Gear collected!")
+            return true
+        end
+
+        -- Fallback: SpendPoint nếu game track internal
         local dt = Utils.Invoke("TempleClock", "Check")
         if dt and dt.HadPoint then
             Utils.Invoke("TempleClock", "SpendPoint",
@@ -863,22 +1026,41 @@ function Main()
             if not HopServer.Hop("Mirage") then HopServer.HopPublic() end
             task.wait(5)
         else
-            Utils.Success("Mirage found!")
-            local gearOk = Mirage.Run()
-            if gearOk and Cond.HasGear() then
+            Utils.Success("Mirage found: " .. mi.Name)
+            -- truyền obj vào Mirage.Run để dùng lại luôn
+            local gearOk = Mirage.Run(mi)
+
+            -- nếu Run() fail do mất đảo → hop tìm server mới
+            if not gearOk then
+                local stillHere = Mirage.Detect()
+                if not stillHere then
+                    Utils.Warn("Island lost → hopping for new Mirage server")
+                    UI.SetStatus("Island lost, hopping...")
+                    if not HopServer.Hop("Mirage") then HopServer.HopPublic() end
+                    task.wait(5)
+                else
+                    Utils.Warn("Gear failed (island still here), retry")
+                    task.wait(3)
+                end
+            elseif Cond.HasGear() then
                 task.wait(2)
                 UI.SetStatus("Pulling lever...")
                 local ok = Temple.PullLever()
                 if ok then
-                    Utils.Success("LEVER PULLED!")
-                    UI.SetStatus("SUCCESS: Lever pulled!")
+                    -- Verify server-side
+                    task.wait(2)
+                    local confirmed = Utils.Retry(Cond.HasPulledLever, 5, 1, "VerifyLever")
+                    if confirmed then
+                        Utils.Success("LEVER PULLED & VERIFIED!")
+                        UI.SetStatus("SUCCESS: Lever pulled!")
+                    else
+                        Utils.Warn("Pull reported OK but server not confirmed yet")
+                        UI.SetStatus("Lever pulled (unverified)")
+                    end
                     return
                 else
                     Utils.Error("PullLever failed after Mirage")
                 end
-            else
-                Utils.Warn("Gear failed, hopping")
-                HopServer.Hop("Mirage"); task.wait(5)
             end
         end
     end
