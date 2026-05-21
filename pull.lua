@@ -53,6 +53,61 @@ local Config = {
     TweenSpeed = 350,
 }
 
+-- ─── Sea check (giống bigupcy.lua) ────────────────────────────────────────────
+local SEA3_IDS = { [7449423635] = true, [100117331123089] = true }
+local worldMap = {
+    [2753915549]="World1", [85211729168715]="World1",
+    [4442272183]="World2", [79091703265657]="World2",
+    [7449423635]="World3", [100117331123089]="World3",
+}
+
+local function GetCurrentSea()
+    local ok, n = pcall(function()
+        return tonumber(workspace:GetAttribute("MAP"):match("%d+"))
+    end)
+    if ok and n then return n end
+    local w = worldMap[game.PlaceId]
+    if w then return tonumber(w:match("%d+")) end
+    return nil
+end
+
+local function CheckSea(v)
+    return GetCurrentSea() == v
+end
+
+local function EnsureSea3()
+    if CheckSea(3) then
+        print("[SEA] Already in Sea 3")
+        return true
+    end
+    print("[SEA] Not Sea 3 (current=" .. tostring(GetCurrentSea()) .. ") → TravelZou")
+
+    -- Chờ DataLoaded (y hệt pattern chuẩn)
+    repeat task.wait() until LP:FindFirstChild("DataLoaded")
+
+    -- Chờ loading screen đóng nếu đang mở
+    if LP.PlayerGui:FindFirstChild("Main (minimal)") then
+        repeat task.wait() until not LP.PlayerGui:FindFirstChild("Main (minimal)")
+    end
+
+    -- Travel đến Sea 3 qua NPC Zou
+    pcall(function() CommF_:InvokeServer("TravelZou") end)
+
+    -- Chờ server load xong
+    task.wait(8)
+    repeat task.wait() until LP:FindFirstChild("DataLoaded")
+    if LP.PlayerGui:FindFirstChild("Main (minimal)") then
+        repeat task.wait() until not LP.PlayerGui:FindFirstChild("Main (minimal)")
+    end
+
+    if CheckSea(3) then
+        print("[SEA] Sea 3 confirmed")
+        return true
+    end
+    print("[SEA] TravelZou failed — still not Sea 3")
+    return false
+end
+
 -- ─── Utils ────────────────────────────────────────────────────────────────────
 local Utils = {}
 local UILog -- forward ref for UI
@@ -951,6 +1006,14 @@ end
 function Main()
     getgenv().PLStop = false
     Utils.Info("=== Pull Lever START | " .. LP.Name .. " ===")
+
+    -- Kiểm tra và đảm bảo đang ở Sea 3
+    UI.SetStatus("Checking sea...")
+    if not EnsureSea3() then
+        Utils.Error("Cannot reach Sea 3"); UI.SetStatus("ERROR: Sea 3 failed"); return
+    end
+    Utils.Info("Sea 3 confirmed")
+
     Cond.PrintAll()
 
     if Cond.HasPulledLever() then
