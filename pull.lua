@@ -1,6 +1,3 @@
--- Pull Lever | Temple of Time | Blox Fruits | Meyy Hub
--- Compat: Fluxus / Delta / Codex / Arceus X / Solara
-
 repeat task.wait(1) until
     game:GetService("ReplicatedStorage") and
     game:GetService("ReplicatedStorage"):FindFirstChild("Remotes") and
@@ -706,99 +703,60 @@ end
 local UI = {}
 local CondLabels = {}
 local StatusLabel = nil
-local LogLabel    = nil
 
 do
-    pcall(function() LP.PlayerGui:FindFirstChild("PullLeverUI") and LP.PlayerGui.PullLeverUI:Destroy() end)
+    pcall(function()
+        local old = LP.PlayerGui:FindFirstChild("PullLeverUI")
+        if old then old:Destroy() end
+    end)
 
     local sg = Instance.new("ScreenGui")
     sg.Name = "PullLeverUI"; sg.ResetOnSpawn = false; sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     sg.Parent = LP.PlayerGui
 
-    -- Main frame
     local frame = Instance.new("Frame")
-    frame.Name = "Main"; frame.Size = UDim2.new(0, 240, 0, 310)
-    frame.Position = UDim2.new(0, 10, 0.5, -155)
+    frame.Name = "Main"
+    frame.Position = UDim2.new(0, 10, 0.5, -80)
     frame.BackgroundColor3 = Color3.fromRGB(18, 18, 22)
     frame.BorderSizePixel  = 0; frame.Parent = sg
     local corner = Instance.new("UICorner"); corner.CornerRadius = UDim.new(0, 8); corner.Parent = frame
 
-    -- Title bar
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 28); title.Position = UDim2.new(0, 0, 0, 0)
     title.BackgroundColor3 = Color3.fromRGB(10, 10, 14); title.BorderSizePixel = 0
-    title.Text = "Pull Lever | Meyy Hub"; title.TextColor3 = Color3.fromRGB(180, 130, 255)
+    title.Text = "Pull Lever | Mtr Chill"; title.TextColor3 = Color3.fromRGB(180, 130, 255)
     title.Font = Enum.Font.GothamSemibold; title.TextSize = 13; title.Parent = frame
     local tc = Instance.new("UICorner"); tc.CornerRadius = UDim.new(0, 8); tc.Parent = title
 
     local y = 34
-    local function makeLabel(text, color)
+    local function makeRow(text, color)
         local lbl = Instance.new("TextLabel")
-        lbl.Size = UDim2.new(1, -12, 0, 18)
+        lbl.Size = UDim2.new(1, -12, 0, 22)
         lbl.Position = UDim2.new(0, 6, 0, y)
         lbl.BackgroundTransparency = 1
         lbl.Text = text; lbl.TextColor3 = color or Color3.fromRGB(220, 220, 220)
-        lbl.Font = Enum.Font.Gotham; lbl.TextSize = 12
+        lbl.Font = Enum.Font.Gotham; lbl.TextSize = 13
         lbl.TextXAlignment = Enum.TextXAlignment.Left
-        lbl.Parent = frame; y = y + 20
+        lbl.Parent = frame; y = y + 26
         return lbl
     end
 
-    local function makeBtn(text, callback)
-        local btn = Instance.new("TextButton")
-        btn.Size = UDim2.new(0.45, 0, 0, 22)
-        btn.BackgroundColor3 = Color3.fromRGB(80, 50, 120)
-        btn.BorderSizePixel  = 0
-        btn.Text = text; btn.TextColor3 = Color3.new(1,1,1)
-        btn.Font = Enum.Font.GothamSemibold; btn.TextSize = 11
-        btn.Parent = frame
-        local bc = Instance.new("UICorner"); bc.CornerRadius = UDim.new(0, 5); bc.Parent = btn
-        btn.MouseButton1Click:Connect(function() pcall(callback) end)
-        return btn
-    end
-
-    -- Condition rows
     local condDefs = {
-        {"ValkyrieHelm",   Cond.HasValkyrieHelm},
-        {"MirrorFractal",  Cond.HasMirrorFractal},
-        {"KilledRipIndra", Cond.HasKilledRipIndra},
-        {"TempleAccess",   Cond.HasTempleAccess},
-        {"HasGear",        Cond.HasGear},
-        {"PulledLever",    Cond.HasPulledLever},
+        { "Valkyrie Helm",  Cond.HasValkyrieHelm },
+        { "Mirror Fractal", Cond.HasMirrorFractal },
+        { "Mirage Island",  Mirage.Detect },
+        { "Pull Lever",     Cond.HasPulledLever },
     }
     for _, def in ipairs(condDefs) do
-        local lbl = makeLabel("⬜ " .. def[1], Color3.fromRGB(200, 200, 200))
+        local lbl = makeRow("⬜  " .. def[1], Color3.fromRGB(200, 200, 200))
         CondLabels[def[1]] = { label = lbl, fn = def[2] }
     end
 
-    local sep = makeLabel("─────────────────────", Color3.fromRGB(60, 60, 80))
-    sep.TextXAlignment = Enum.TextXAlignment.Center
+    y = y + 4
+    StatusLabel = makeRow("idle", Color3.fromRGB(255, 200, 80))
 
-    StatusLabel = makeLabel("Status: idle", Color3.fromRGB(255, 200, 80))
-    LogLabel    = makeLabel("", Color3.fromRGB(150, 150, 170))
-    LogLabel.TextWrapped = true; LogLabel.Size = UDim2.new(1, -12, 0, 36); y = y + 18
+    frame.Size = UDim2.new(0, 220, 0, y + 8)
 
-    UILog = function(msg)
-        pcall(function()
-            LogLabel.Text = msg:sub(1, 80)
-        end)
-    end
-
-    -- Buttons row 1
-    local bRun  = makeBtn("[RUN]",  function() task.spawn(Main) end)
-    local bStop = makeBtn("[STOP]", function() getgenv().PLStop = true; Utils.Warn("STOP") end)
-    bRun.Position  = UDim2.new(0.02, 0, 0, y)
-    bStop.Position = UDim2.new(0.53, 0, 0, y); y = y + 26
-
-    -- Buttons row 2
-    local bScan = makeBtn("[SCAN]",  function() task.spawn(Scanner.ScanGameFunctions) end)
-    local bPatch= makeBtn("[PATCH]", function() task.spawn(Scanner.CheckPatch) end)
-    bScan.Position  = UDim2.new(0.02, 0, 0, y)
-    bPatch.Position = UDim2.new(0.53, 0, 0, y); y = y + 26
-
-    frame.Size = UDim2.new(0, 240, 0, y + 6)
-
-    -- Draggable
     local dragging, dragStart, startPos = false, nil, nil
     frame.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -815,7 +773,6 @@ do
         if i.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
     end)
 
-    -- Auto-refresh condition labels
     task.spawn(function()
         while task.wait(1) do
             for name, def in pairs(CondLabels) do
@@ -840,8 +797,6 @@ end
 function Main()
     getgenv().PLStop = false
     Utils.Info("=== Pull Lever START | " .. LP.Name .. " ===")
-
-    if not Scanner.CheckPatch() then Utils.Warn("Patch issues detected, continuing") end
     Cond.PrintAll()
 
     if Cond.HasPulledLever() then
@@ -906,25 +861,25 @@ function Main()
             Utils.Info("No Mirage, hopping...")
             UI.SetStatus("Hopping for Mirage...")
             if not HopServer.Hop("Mirage") then HopServer.HopPublic() end
-            task.wait(5); continue
-        end
-
-        Utils.Success("Mirage found!")
-        local gearOk = Mirage.Run()
-        if gearOk and Cond.HasGear() then
-            task.wait(2)
-            UI.SetStatus("Pulling lever...")
-            local ok = Temple.PullLever()
-            if ok then
-                Utils.Success("LEVER PULLED!")
-                UI.SetStatus("SUCCESS: Lever pulled!")
-                return
-            else
-                Utils.Error("PullLever failed after Mirage")
-            end
+            task.wait(5)
         else
-            Utils.Warn("Gear failed, hopping")
-            HopServer.Hop("Mirage"); task.wait(5)
+            Utils.Success("Mirage found!")
+            local gearOk = Mirage.Run()
+            if gearOk and Cond.HasGear() then
+                task.wait(2)
+                UI.SetStatus("Pulling lever...")
+                local ok = Temple.PullLever()
+                if ok then
+                    Utils.Success("LEVER PULLED!")
+                    UI.SetStatus("SUCCESS: Lever pulled!")
+                    return
+                else
+                    Utils.Error("PullLever failed after Mirage")
+                end
+            else
+                Utils.Warn("Gear failed, hopping")
+                HopServer.Hop("Mirage"); task.wait(5)
+            end
         end
     end
 
