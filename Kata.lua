@@ -819,56 +819,16 @@ end
 --  BYPASS TP ĐẾN CỔNG MIRROR WORLD
 -- ============================================================
 -- Tọa độ cổng vào Mirror World (Cake Prince)
-local GATE_POSITION = Vector3.new(-2152.15, 120, -12398.39)
+local GATE_POSITION = Vector3.new(-2149, 120, 12396)
 
 local function BypassTpToCakeLoaf()
-    SetText("Kata | Bypass TP → Cổng Mirror World...")
+    SetText("Kata | Tween → Cổng Mirror World...")
     DebugCakeLoafPosition()
 
-    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not myHrp then return end
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
 
-    -- Tắt collision toàn thân để bypass tường
-    for _, part in LP.Character:GetDescendants() do
-        if part:IsA("BasePart") then part.CanCollide = false end
-    end
-
-    -- Thử requestEntrance để server mở cổng
-    pcall(function()
-        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
-    end)
-    task.wait(0.5)
-
-    -- TP thẳng HRP vào tọa độ cổng (không dùng tween block tránh bị server đẩy ra)
-    -- Dùng vòng loop giữ tại cổng cho đến khi vào được Mirror World
-    local timeout = 15
-    local elapsed = 0
-    while elapsed < timeout do
-        task.wait(0.5)
-        elapsed = elapsed + 0.5
-
-        -- Kiểm tra đã vào Mirror World chưa
-        local loc = LP:GetAttribute("CurrentLocation") or LP:GetAttribute("ExactLocation") or ""
-        if loc:lower():find("mirror") or loc:lower():find("cake") then
-            SetText("Kata | Đã vào Mirror World!")
-            break
-        end
-
-        -- Giữ player tại tọa độ cổng mỗi tick (override server push-back)
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CFrame = CFrame.new(GATE_POSITION)
-        end
-
-        -- Tiếp tục gọi requestEntrance mỗi 2s
-        if elapsed % 2 < 0.6 then
-            pcall(function()
-                RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
-            end)
-        end
-    end
-
-    task.wait(0.5)
+    TweenTo(CFrame.new(GATE_POSITION))
+    task.wait(3)
 end
 
 -- ============================================================
