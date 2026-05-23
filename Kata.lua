@@ -68,12 +68,35 @@ end
 getgenv().StopKata = false
 isHopping = false
 
--- Auto rejoin khi bị lỗi server
-game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
-    if not isHopping and child.Name == 'ErrorPrompt'
-    and child:FindFirstChild('MessageArea')
-    and child.MessageArea:FindFirstChild("ErrorFrame") then
+-- Auto rejoin khi bị lỗi / security kick
+local function RejoinSelf()
+    pcall(function()
         RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", game.JobId)
+    end)
+end
+
+game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
+    if isHopping then return end
+    -- ErrorPrompt thông thường
+    if child.Name == 'ErrorPrompt'
+    and child:FindFirstChild('MessageArea')
+    and child.MessageArea:FindFirstChild('ErrorFrame') then
+        RejoinSelf()
+        return
+    end
+    -- Security kick (Roblox hiện qua ErrorPrompt hoặc LeaveGamePrompt)
+    if child.Name == 'LeaveGamePrompt' then
+        task.wait(1)
+        RejoinSelf()
+        return
+    end
+end)
+
+-- Detect bị kick bởi anti-cheat / security qua PlayerRemoving / Humanoid
+game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(state)
+    if state == Enum.TeleportState.Failed then
+        task.wait(2)
+        RejoinSelf()
     end
 end)
 
@@ -793,49 +816,31 @@ local function DebugCakeLoafPosition()
 end
 
 -- ============================================================
---  BYPASS TP ĐẾN ĐẢO CAKELOAF  (lấy patch từ bigupcy.lua)
+--  BYPASS TP ĐẾN CỔNG MIRROR WORLD (đến thẳng cổng, offset để không stuck)
 -- ============================================================
--- Tọa độ cổng vào Mirror World để đánh Cake Prince
+-- Tọa độ gốc cổng Mirror World (Cake Prince)
 local GATE_POSITION = Vector3.new(-2152.15, 120, -12398.39)
+-- Offset thêm +60 Z để tween dừng trước cổng, không bị stuck vào tường/collision
+local GATE_APPROACH = CFrame.new(GATE_POSITION + Vector3.new(0, 5, 60))
 
 local function BypassTpToCakeLoaf()
-    SetText("Kata | Bypass TP → CakeLoaf...")
+    SetText("Kata | Bypass TP → Cổng Mirror World...")
     DebugCakeLoafPosition()
 
     local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
     if not myHrp then return end
 
-    -- Patch bypass: tắt collision toàn thân
+    -- Tắt collision toàn thân để bypass tường
     for _, part in LP.Character:GetDescendants() do
         if part:IsA("BasePart") then part.CanCollide = false end
     end
 
-    -- Thử requestEntrance trước (giống bigupcy dùng cho các vùng đặc biệt)
-    pcall(function()
-        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
-    end)
-    task.wait(1)
+    -- Tween thẳng đến điểm đứng trước cổng (offset +60 Z, +5 Y)
+    TweenTo(GATE_APPROACH)
+    task.wait(3)
 
-    -- Tween đến cổng Mirror World
-    TweenTo(CFrame.new(GATE_POSITION))
-
-    -- Đợi tween về gần đích
-    local timeout = 20
-    local elapsed = 0
-    while elapsed < timeout do
-        task.wait(0.5)
-        elapsed = elapsed + 0.5
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dist = (hrp.Position - GATE_POSITION).Magnitude
-            if dist < 50 then
-                SetText("Kata | Đã đến cổng Mirror World!")
-                break
-            end
-        end
-    end
-
-    task.wait(1)
+    SetText("Kata | Đã đến trước cổng Mirror World!")
+    task.wait(0.5)
 end
 
 -- ============================================================
@@ -924,11 +929,11 @@ local function HopApiCakePrince(maxPlayers, waitTime)
             if players >= maxPlayers then continue end
 
             triedCount = triedCount + 1
-            -- Retry cùng 1 jobId tối đa 10 lần, mỗi lần cách 0.5s
+            -- Retry cùng 1 jobId tối đa 5 lần, mỗi lần cách 1s
             local retrySuccess = false
-            for retry = 1, 10 do
+            for retry = 1, 5 do
                 if getgenv().StopKata then return false end
-                SetText("Kata | Hop [" .. retry .. "/10] → " .. players .. " người | " .. jobId:sub(1,8) .. "...")
+                SetText("Kata | Hop [" .. retry .. "/5] → " .. players .. " người | " .. jobId:sub(1,8) .. "...")
                 local teleportOk = pcall(function()
                     RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", jobId)
                 end)
@@ -948,13 +953,13 @@ local function HopApiCakePrince(maxPlayers, waitTime)
                     retrySuccess = true
                     return true
                 end
-                -- Chưa vào được → thử lại sau 0.5s
-                task.wait(0.5)
+                -- Chưa vào được → thử lại sau 1s
+                task.wait(1)
             end
-            -- Sau 10 lần vẫn fail → đánh dấu jobId này và đổi sang jobId khác
+            -- Sau 5 lần vẫn fail → đánh dấu jobId này và đổi sang jobId khác
             if not retrySuccess then
                 getgenv().FailedJobIds[jobId] = tick()
-                SetText("Kata | Fail 10 lần server #" .. triedCount .. " → Đổi jobId...")
+                SetText("Kata | Fail 5 lần server #" .. triedCount .. " → Đổi jobId...")
             end
         end
 
