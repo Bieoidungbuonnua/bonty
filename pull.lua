@@ -437,11 +437,11 @@ do
 end
 
 -- ─── Conditions (via Sealed King / RaceV4Progress state) ─────────────────────
--- RaceV4Progress Check states:
---   1 = Rip_Indra not killed (Sealed King: "Here lies king Red Head...")
---   2 = Rip_Indra killed, needs to go to Temple (Sealed King: "Please head to the Great Tree...")
---   3 = Entered Temple entrance (Sealed King: "Ah, so it was the Temple of Time...")
---   4 = Quest complete / lever pulled
+-- RaceV4Progress actual states (confirmed via debug):
+--   0 = not started (never talked to Sealed King)
+--   1 = Rip_Indra killed → go to Temple (Sealed King: "Please head to the Great Tree...")
+--   2 = entered Temple entrance (Sealed King: "Ah, so it was the Temple of Time...")
+--   3 = quest complete / lever pulled
 local Cond = {}
 do
     local function GetV4State()
@@ -481,23 +481,15 @@ do
         return false
     end
 
-    -- Sealed King dialogue state >= 2: Rip_Indra killed
+    -- state >= 1: Rip_Indra killed (confirmed: remote returns 1 after kill)
     function Cond.HasKilledRipIndra()
-        local state = GetV4State()
-        if state >= 2 then return true end
-        -- Fallback: invoke Sealed_King NPC trực tiếp để đọc dialogue state
-        local ok, res = pcall(function()
-            return RS.Remotes.CommF_:InvokeServer("Sealed_King", "Dialogue")
-        end)
-        Utils.Info("[SealedKing] ok=" .. tostring(ok) .. " res=" .. tostring(res))
-        if ok and type(res) == "number" then return res >= 2 end
-        if ok and type(res) == "table" and res.state then return res.state >= 2 end
-        return false
+        return GetV4State() >= 1
     end
 
-    -- Sealed King dialogue state >= 3: entered Temple entrance
+    -- state >= 2: entered Temple entrance
     function Cond.HasTempleAccess()
-        if GetV4State() >= 3 then return true end
+        if GetV4State() >= 2 then return true end
+        -- Fallback: check FFABorder forcefield
         local temple = workspace.Map and workspace.Map:FindFirstChild("Temple of Time")
         if not temple then return false end
         local border = temple:FindFirstChild("FFABorder")
@@ -508,11 +500,11 @@ do
         return false
     end
 
-    -- Pulled lever = CheckTempleDoor truthy OR state == 4
+    -- state >= 3: lever pulled / quest complete
     function Cond.HasPulledLever()
         local door = Utils.Invoke("CheckTempleDoor")
         if door then return true end
-        return GetV4State() == 4
+        return GetV4State() >= 3
     end
 
     -- Gear collected = TempleClock shows at least 1 gear completed
