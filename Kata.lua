@@ -1032,6 +1032,31 @@ task.spawn(function()
 end)
 
 -- ============================================================
+--  KIỂM TRA ĐANG Ở ĐẢO CAKELOAF
+-- ============================================================
+local CAKELOAF_KEYWORDS = {"cakeloaf", "cake loaf", "cake_loaf", "cakeland"}
+
+local function IsOnCakeLoaf()
+    -- Check qua attribute CurrentLocation / ExactLocation
+    local loc = (LP:GetAttribute("CurrentLocation") or LP:GetAttribute("ExactLocation") or ""):lower()
+    for _, kw in ipairs(CAKELOAF_KEYWORDS) do
+        if loc:find(kw) then return true end
+    end
+    -- Check qua workspace MAP attribute (tên đảo)
+    local mapAttr = tostring(workspace:GetAttribute("MAP") or ""):lower()
+    for _, kw in ipairs(CAKELOAF_KEYWORDS) do
+        if mapAttr:find(kw) then return true end
+    end
+    -- Check qua tọa độ: gần GATE_POSITION là đang ở khu CakeLoaf
+    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local dist = (hrp.Position - GATE_POSITION).Magnitude
+        if dist < 3000 then return true end  -- trong vòng 3000 studs tính là đang ở khu vực
+    end
+    return false
+end
+
+-- ============================================================
 --  MAIN LOOP
 -- ============================================================
 SetText("Kata | Khởi động Farm Cake Prince...")
@@ -1040,15 +1065,38 @@ task.wait(2)
 while not getgenv().StopKata do
     task.wait(1)
 
-    -- Bước 1: Check có boss Cake Prince không
+    -- ┌─────────────────────────────────────────────┐
+    -- │  BƯỚC 0: Đảm bảo đang ở đảo CakeLoaf       │
+    -- └─────────────────────────────────────────────┘
+    if not IsOnCakeLoaf() then
+        SetText("Kata | Chưa ở CakeLoaf → Bypass TP đến đảo...")
+        BypassTpToCakeLoaf()
+        task.wait(2)
+        -- Kiểm tra lại sau khi tween
+        if not IsOnCakeLoaf() then
+            SetText("Kata | Vẫn chưa đến CakeLoaf → thử lại sau 2s...")
+            task.wait(2)
+            continue
+        end
+        SetText("Kata | Đã đến CakeLoaf!")
+        task.wait(1)
+    end
+
+    -- ┌─────────────────────────────────────────────┐
+    -- │  BƯỚC 1: Check có boss Cake Prince không    │
+    -- └─────────────────────────────────────────────┘
     if HasCakePrince() then
         SetText("Kata | Có Cake Prince! Đang TP đến cổng...")
 
-        -- Bước 2: Bypass TP đến cổng Mirror World
+        -- ┌─────────────────────────────────────────┐
+        -- │  BƯỚC 2: TP đến cổng Mirror World       │
+        -- └─────────────────────────────────────────┘
         BypassTpToCakeLoaf()
         task.wait(2)
 
-        -- Bước 3: Kill boss
+        -- ┌─────────────────────────────────────────┐
+        -- │  BƯỚC 3: Kill boss                      │
+        -- └─────────────────────────────────────────┘
         local killed = FindAndKillCakePrince()
 
         if killed then
@@ -1064,7 +1112,9 @@ while not getgenv().StopKata do
         end
 
     else
-        -- Bước 4: Không có boss → HopAPI
+        -- ┌─────────────────────────────────────────┐
+        -- │  BƯỚC 4: Không có boss → HopAPI         │
+        -- └─────────────────────────────────────────┘
         SetText("Kata | Không có Cake Prince → HopAPI...")
         HopApiCakePrince(12, 25)
     end
