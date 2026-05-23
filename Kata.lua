@@ -2,14 +2,12 @@ if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
 end
-
 -- ============================================================
 --  KATA.LUA  |  Farm Cake Prince (Boss World 3)
 -- ============================================================
 
 local RS_ = game:GetService("ReplicatedStorage")
 local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
-
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
     pcall(function()
@@ -24,7 +22,6 @@ local RunService = game:GetService("RunService")
 local VIM = game:GetService("VirtualInputManager")
 local LP  = game:GetService("Players").LocalPlayer
 local HttpService = game:GetService("HttpService")
-
 local placeIdd = game.PlaceId
 local worldMap = {
     [2753915549]   = "World1",
@@ -34,11 +31,9 @@ local worldMap = {
     [7449423635]   = "World3",
     [100117331123089] = "World3",
 }
-
 -- Config tương thích (nếu không có Config thì dùng default)
 local CG = getgenv().Config or { ["Black Screen"] = false, toolTip = "Melee" }
 if not CG.toolTip then CG.toolTip = "Melee" end
-
 Services = setmetatable({}, {__index = function(self, name)
     local s, c = pcall(function()
         return (cloneref or function(x) return x end)(game:GetService(name))
@@ -46,60 +41,49 @@ Services = setmetatable({}, {__index = function(self, name)
     if s then rawset(self, name, c) return c
     else error("Invalid Roblox Service: " .. tostring(name)) end
 end})
-
 local Root = LP.Character.HumanoidRootPart
 _G.FarmV2 = false
-
 LP.CharacterAdded:Connect(function(char)
     char:WaitForChild("HumanoidRootPart")
     Root = char.HumanoidRootPart
 end)
-
 local Character, Humanoid, HumanoidRootPart
 if LP then
     Character     = LP.Character
     Humanoid      = Character:FindFirstChildWhichIsA("Humanoid") or Character:WaitForChild("Humanoid")
     HumanoidRootPart = Character:FindFirstChild("HumanoidRootPart") or Character:WaitForChild("HumanoidRootPart")
 end
-
 -- ============================================================
 --  BIẾN GLOBAL
 -- ============================================================
 getgenv().StopKata = false
 isHopping = false
-
 -- Auto rejoin khi bị lỗi / security kick
 local function RejoinSelf()
     pcall(function()
         RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", game.JobId)
     end)
 end
-
 game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
     if isHopping then return end
-    -- ErrorPrompt thông thường
     if child.Name == 'ErrorPrompt'
     and child:FindFirstChild('MessageArea')
     and child.MessageArea:FindFirstChild('ErrorFrame') then
         RejoinSelf()
         return
     end
-    -- Security kick (Roblox hiện qua ErrorPrompt hoặc LeaveGamePrompt)
     if child.Name == 'LeaveGamePrompt' then
         task.wait(1)
         RejoinSelf()
         return
     end
 end)
-
--- Detect bị kick bởi anti-cheat / security qua PlayerRemoving / Humanoid
 game:GetService("Players").LocalPlayer.OnTeleport:Connect(function(state)
     if state == Enum.TeleportState.Failed then
         task.wait(2)
         RejoinSelf()
     end
 end)
-
 -- Auto Buso
 spawn(function()
     while task.wait(1) do
@@ -110,7 +94,6 @@ spawn(function()
         end)
     end
 end)
-
 -- ============================================================
 --  TWEEN / TP SYSTEM  (lấy từ bigupcy.lua)
 -- ============================================================
@@ -122,7 +105,6 @@ block.Anchored  = true
 block.CanCollide = false
 block.CanTouch  = false
 block.Transparency = 1
-
 task.spawn(function()
     while task.wait() do
         pcall(function()
@@ -144,7 +126,6 @@ task.spawn(function()
         end)
     end
 end)
-
 local function _tp(target)
     if not target then return end
     target = typeof(target) ~= "CFrame" and CFrame.new(target) or target
@@ -168,7 +149,6 @@ local function _tp(target)
         end
     end)
 end
-
 function TweenTo(Position)
     if not Position then return end
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -180,14 +160,12 @@ function TweenTo(Position)
     block.CFrame = LP.Character.HumanoidRootPart.CFrame
     _tp(Position)
 end
-
 function StopTween()
     shouldTween = false
     if block and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
         block.CFrame = LP.Character.HumanoidRootPart.CFrame
     end
 end
-
 -- ============================================================
 --  LABEL UI
 -- ============================================================
@@ -206,19 +184,16 @@ label.BackgroundTransparency = 1
 label.Font = Enum.Font.GothamSemibold
 label.TextSize = 48
 label.TextColor3 = Color3.fromRGB(255, 255, 0)
-
 local function SetText(newText)
     label.Text = newText
     print("[Kata] " .. tostring(newText))
 end
-
 -- ============================================================
 --  UTIL FUNCTIONS
 -- ============================================================
 local function CheckTool(v)
     return (LP.Backpack:FindFirstChild(v) or (LP.Character and LP.Character:FindFirstChild(v))) and true or false
 end
-
 local function EquipByTip(toolTip)
     if not LP.Character then return end
     local equipped = LP.Character:FindFirstChildOfClass("Tool")
@@ -231,7 +206,6 @@ local function EquipByTip(toolTip)
     end
     return nil
 end
-
 local function GetConnectionEnemies(a)
     for _, v in pairs(RS:GetChildren()) do
         if v:IsA("Model") and ((typeof(a) == "table" and table.find(a, v.Name)) or v.Name == a)
@@ -247,7 +221,6 @@ local function GetConnectionEnemies(a)
     end
     return nil
 end
-
 -- ============================================================
 --  BRING MOB  (lấy từ KaitunGhoul.lua)
 -- ============================================================
@@ -262,7 +235,7 @@ local function BringMob()
            and enemy.Humanoid.Health > 0 then
             local dist = (enemy.HumanoidRootPart.Position - myPos).Magnitude
             if dist <= 350 then
-                enemy.HumanoidRootPart.CFrame = CFrame.new(myPos + Vector3.new(0, 0, 5))
+                enemy.HumanoidRootPart.CFrame = CFrame.new(myPos + Vector3.new(0, 15, 0))
                 enemy.HumanoidRootPart.CanCollide = false
                 enemy.Humanoid.WalkSpeed = 0
                 enemy.Humanoid.JumpPower = 0
@@ -273,7 +246,6 @@ local function BringMob()
         end
     end
 end
-
 BringMonster = (function(name, count) count = count or 3
     if count < 2 then return end
     pcall(function() setscriptable(LP, "SimulationRadius", true) end)
@@ -304,15 +276,12 @@ BringMonster = (function(name, count) count = count or 3
         end
     end), (function(r) warn("[Kata] BringMonster Error: ".. r) end))
 end)
-
 -- ============================================================
 --  FAST ATTACK  (lấy từ KaitunGhoul.lua – Layer 1)
 -- ============================================================
 _G.FastAttack = true
-
 if _G.FastAttack then
     local _ENV = (getgenv or getrenv or getfenv)()
-
     local function SafeWaitForChild(parent, childName)
         local success, result = pcall(function()
             return parent:WaitForChild(childName, 10)
@@ -322,12 +291,10 @@ if _G.FastAttack then
         end
         return result
     end
-
     local VirtualInputManager = game:GetService("VirtualInputManager")
     local ReplicatedStorage   = game:GetService("ReplicatedStorage")
     local Players             = game:GetService("Players")
     local Player              = Players.LocalPlayer
-
     if Player then
         local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
         if Remotes then
@@ -335,27 +302,21 @@ if _G.FastAttack then
             local Characters = SafeWaitForChild(workspace, "Characters")
             local Modules   = SafeWaitForChild(ReplicatedStorage, "Modules")
             local Net       = SafeWaitForChild(Modules, "Net")
-
             local Settings = { AutoClick = true, ClickDelay = 0 }
             local Module   = {}
-
             Module.FastAttack = (function()
                 if _ENV.rz_FastAttack then return _ENV.rz_FastAttack end
-
                 local FastAttack = {
                     Distance      = 100,
                     attackMobs    = true,
                     attackPlayers = true,
                     Equipped      = nil
                 }
-
                 local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
                 local RegisterHit    = SafeWaitForChild(Net, "RE/RegisterHit")
-
                 local function IsAlive(character)
                     return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
                 end
-
                 local function ProcessEnemies(OthersEnemies, Folder)
                     local BasePart = nil
                     for _, Enemy in Folder:GetChildren() do
@@ -369,13 +330,11 @@ if _G.FastAttack then
                     end
                     return BasePart
                 end
-
                 function FastAttack:Attack(BasePart, OthersEnemies)
                     if not BasePart or #OthersEnemies == 0 then return end
                     RegisterAttack:FireServer(Settings.ClickDelay or 0)
                     RegisterHit:FireServer(BasePart, OthersEnemies)
                 end
-
                 function FastAttack:AttackNearest()
                     local OthersEnemies = {}
                     local Part1 = ProcessEnemies(OthersEnemies, Enemies)
@@ -395,7 +354,6 @@ if _G.FastAttack then
                         task.wait(0)
                     end
                 end
-
                 function FastAttack:BladeHits()
                     local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
                     if Equipped and Equipped.ToolTip ~= "Gun" then
@@ -404,7 +362,6 @@ if _G.FastAttack then
                         task.wait(0)
                     end
                 end
-
                 task.spawn(function()
                     while task.wait(Settings.ClickDelay) do
                         if Settings.AutoClick then
@@ -412,14 +369,12 @@ if _G.FastAttack then
                         end
                     end
                 end)
-
                 _ENV.rz_FastAttack = FastAttack
                 return FastAttack
             end)()
         end
     end
 end
-
 -- Layer 2: remote + CombatUtil attack (giống bigupcy)
 local remote, idremote
 for _, v in next, ({RS.Util, RS.Common, RS.Remotes, RS.Assets, RS.FX}) do
@@ -436,7 +391,6 @@ for _, v in next, ({RS.Util, RS.Common, RS.Remotes, RS.Assets, RS.FX}) do
         end)
     end)
 end
-
 task.spawn(function()
     while task.wait(0.05) do
         local char = LP.Character
@@ -480,7 +434,6 @@ task.spawn(function()
         end
     end
 end)
-
 -- Layer 3: CombatUtil
 local M  = RS:WaitForChild("Modules")
 local CU, WD = nil, nil
@@ -490,7 +443,6 @@ task.spawn(function()
     local ok2, r2 = pcall(function() return require(M:WaitForChild("WeaponData", 10)) end)
     if ok2 then WD = r2 else warn("[Kata] Không load được WeaponData") end
 end)
-
 local N  = M:FindFirstChild("Net")
 local RA = N and (N:FindFirstChild("RE/RegisterAttack") or N:FindFirstChild("RegisterAttack"))
 local RH = N and (N:FindFirstChild("RE/RegisterHit")    or N:FindFirstChild("RegisterHit"))
@@ -508,16 +460,13 @@ do
     end
     if not IS and _G.SendHitsToServer then IS = _G.SendHitsToServer end
 end
-
 pcall(function()
     hookfunction(CU.GetComboPaddingTime,     function() return 0    end)
     hookfunction(CU.GetAttackCancelMultiplier, function() return 0  end)
     hookfunction(CU.CanAttack,               function() return true end)
 end)
-
 local HList = {"RightLowerArm","RightUpperArm","LeftLowerArm","LeftUpperArm",
                "RightHand","LeftHand","HumanoidRootPart","Head","UpperTorso","LowerTorso"}
-
 okm = function(m)
     local h = m:FindFirstChildWhichIsA("Humanoid")
     return h and h.Health > 0 and m:FindFirstChild("HumanoidRootPart") and not m:FindFirstChild("VehicleSeat")
@@ -615,7 +564,6 @@ spawn(function()
         end)
     end
 end)
-
 -- Layer 3b: loadstring FastAttack (giống KaitunGhoul)
 local FastAttackLS = loadstring([[
     local Modules = game.ReplicatedStorage.Modules
@@ -671,7 +619,6 @@ local FastAttackLS = loadstring([[
     end
 ]])
 if FastAttackLS then FastAttackLS() end
-
 -- ============================================================
 --  KILL MONSTER  (logic từ bigupcy.lua – có BringMob)
 -- ============================================================
@@ -685,21 +632,17 @@ KillMonster = function(x)
                 if vh and vh.Health > 0 and vhrp and v.Name == x then
                     local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                     if not myHrp then return end
-
                     local toolTipConfig = CG["toolTip"] or "Melee"
                     EquipByTip(toolTipConfig)
-
                     local dx = myHrp.Position.X - vhrp.Position.X
                     local dy = myHrp.Position.Y - vhrp.Position.Y
                     local dz = myHrp.Position.Z - vhrp.Position.Z
-
                     if dx*dx + dy*dy + dz*dz <= 4900 then
                         if tick() - lastKenCall >= 10 then
                             lastKenCall = tick()
                             RS.Remotes.CommE:FireServer("Ken", true)
                         end
                     end
-
                     if toolTipConfig == "Blox Fruit" then
                         local currentHealth = vh.Health
                         local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
@@ -740,16 +683,14 @@ KillMonster = function(x)
         end
     end, function(e) warn("[Kata] KillMonster ERROR:", e) end)
 end
-
 -- ============================================================
 --  HOP API  –  name_kata.json  (lưu jobid đã hop)
 -- ============================================================
-local KATA_FILE     = LP.Name .. "_kata.json"
-local HoppedJobIds  = {}
-local HopCount      = 0
+local KATA_FILE    = LP.Name .. "_kata.json"
+local HoppedJobIds = {}
+local HopCount     = 0
 getgenv().FailedJobIds   = getgenv().FailedJobIds or {}
 getgenv().LastApiRefresh = getgenv().LastApiRefresh or 0
-
 local function LoadHoppedJobIds()
     pcall(function()
         local ok, data = pcall(readfile, KATA_FILE)
@@ -763,7 +704,6 @@ local function LoadHoppedJobIds()
         end
     end)
 end
-
 local function SaveHoppedJobIds()
     pcall(function()
         local list = {}
@@ -773,75 +713,79 @@ local function SaveHoppedJobIds()
         writefile(KATA_FILE, HttpService:JSONEncode(list))
     end)
 end
-
 LoadHoppedJobIds()
-
 -- ============================================================
---  DEBUG: In tọa độ đảo CakeLoaf vào console
+--  TỌA ĐỘ
 -- ============================================================
-local function DebugCakeLoafPosition()
-    -- Tìm đảo trong workspace theo tên
-    local candidates = {"CakeLoaf", "Cake_Loaf", "Cake Loaf", "CakeIsland", "Mirror World"}
-    for _, name in ipairs(candidates) do
-        -- Tìm trong Map
-        local mapFolder = workspace:FindFirstChild("Map")
-        if mapFolder then
-            local island = mapFolder:FindFirstChild(name, true)
-            if island then
-                local pos = island:IsA("BasePart") and island.Position
-                    or (island:FindFirstChildWhichIsA("BasePart") and island:FindFirstChildWhichIsA("BasePart").Position)
-                if pos then
-                    print("[Kata] DEBUG CakeLoaf island '" .. name .. "' Position:", pos)
-                end
-            end
-        end
-        -- Tìm trong Locations
-        local worldOrigin = workspace:FindFirstChild("_WorldOrigin")
-        if worldOrigin then
-            local locs = worldOrigin:FindFirstChild("Locations")
-            if locs then
-                local loc = locs:FindFirstChild(name, true)
-                if loc then
-                    print("[Kata] DEBUG Location '" .. name .. "':", loc:GetFullName(), loc.Value or loc.Position or loc)
-                end
-            end
-        end
-    end
-    -- In tọa độ cổng Mirror World đã biết
-    print("[Kata] DEBUG Cổng Mirror World (hard-coded): -2152.15, 120, -12398.39")
-    -- In tọa độ hiện tại của player để so sánh
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        print("[Kata] DEBUG Player Position:", LP.Character.HumanoidRootPart.Position)
-    end
-end
+-- Điểm đổ bộ đảo CakeLoaf để kiểm tra & tween đến khi mới bắt đầu
+local CAKELOAF_LAND   = Vector3.new(-1762, 38, -11878)
+local CAKELOAF_RADIUS = 300   -- ngưỡng "đang ở CakeLoaf" (dùng khi check ban đầu)
+-- Tọa độ cổng Mirror World (giữ nguyên từ 1.lua)
+local GATE_POSITION   = Vector3.new(-2152.15, 120, -12398.39)
 
--- ============================================================
---  BYPASS TP ĐẾN CỔNG MIRROR WORLD
--- ============================================================
--- Tọa độ cổng vào Mirror World (Cake Prince)
-local GATE_POSITION = Vector3.new(-2149, 120, 12396)
-
-local function BypassTpToCakeLoaf()
-    SetText("Kata | Tween → Cổng Mirror World...")
-    DebugCakeLoafPosition()
-
+-- TweenTo đến đảo CakeLoaf (chỉ chạy một lần khi mới vào, trước HopAPI)
+local function GoToCakeLoaf()
+    SetText("Kata | TweenTo → đảo CakeLoaf...")
     if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-
-    TweenTo(CFrame.new(GATE_POSITION))
-    task.wait(3)
+    TweenTo(CFrame.new(CAKELOAF_LAND))
+    -- Chờ tween chạy xong (dist < CAKELOAF_RADIUS hoặc timeout 60s)
+    local t = 0
+    while t < 60 do
+        task.wait(0.5)
+        t = t + 0.5
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS then
+            StopTween()
+            SetText("Kata | Đã đến CakeLoaf!")
+            task.wait(0.5)
+            return
+        end
+    end
+    StopTween()
 end
 
+-- TweenTo cổng Mirror World (giống 1.lua: requestEntrance + tween + chờ dist < 50)
+local function BypassTpToCakeLoaf()
+    SetText("Kata | Bypass TP → Cổng Mirror World...")
+    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return end
+    -- Patch bypass: tắt collision toàn thân
+    for _, part in LP.Character:GetDescendants() do
+        if part:IsA("BasePart") then part.CanCollide = false end
+    end
+    -- requestEntrance để server mở vùng Mirror World
+    pcall(function()
+        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
+    end)
+    task.wait(1)
+    -- Tween đến cổng Mirror World
+    TweenTo(CFrame.new(GATE_POSITION))
+    -- Chờ tween về gần đích (dist < 50 hoặc timeout 20s)
+    local timeout = 20
+    local elapsed = 0
+    while elapsed < timeout do
+        task.wait(0.5)
+        elapsed = elapsed + 0.5
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local dist = (hrp.Position - GATE_POSITION).Magnitude
+            if dist < 50 then
+                SetText("Kata | Đã đến cổng Mirror World!")
+                break
+            end
+        end
+    end
+    task.wait(1)
+end
 -- ============================================================
 --  KIỂM TRA BOSS CAKE PRINCE
 -- ============================================================
 local function HasCakePrince()
-    -- Tìm trong workspace.Enemies
     for _, v in pairs(workspace.Enemies:GetChildren()) do
         if v.Name == "Cake Prince" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
             return true
         end
     end
-    -- Tìm trong RS (boss chưa spawn vào Enemies)
     for _, v in pairs(RS:GetChildren()) do
         if v.Name == "Cake Prince" and v:IsA("Model")
            and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
@@ -850,155 +794,195 @@ local function HasCakePrince()
     end
     return false
 end
-
 -- ============================================================
---  HOP API ĐẾN SERVER CÓ CAKE PRINCE
+--  HOP API ĐẾN SERVER CÓ CAKE PRINCE  (tối ưu)
 -- ============================================================
 local CAKE_PRINCE_API = "http://mbasic7.pikamc.vn:25082/api/name=cakeprince?apikey=CONCACDUMAMAY"
+
+-- Hàm load API nhanh, trả về danh sách server đã lọc+sort theo ít người
+local function FetchFilteredServers()
+    local CURRENT_PLACE_ID = game.PlaceId
+    local responseBody
+    -- Thử HttpGet trước (nhanh nhất)
+    pcall(function() responseBody = game:HttpGet(CAKE_PRINCE_API) end)
+    -- Fallback sang request nếu cần
+    if not responseBody then
+        pcall(function()
+            local reqFunc = (syn and syn.request) or request or http.request
+            local req = reqFunc({ Url = CAKE_PRINCE_API, Method = "GET" })
+            responseBody = req.Body
+        end)
+    end
+    if not responseBody then return nil, "Không lấy được API" end
+
+    local ok, data = pcall(function() return HttpService:JSONDecode(responseBody) end)
+    if not ok or not data or not data.success
+    or type(data.data) ~= "table" or type(data.data.data) ~= "table" then
+        return nil, "API sai dữ liệu"
+    end
+
+    -- Dedup + lọc đúng placeId
+    local seen, filtered = {}, {}
+    for _, entry in ipairs(data.data.data) do
+        local jobId  = entry.jobid
+        local placeId = entry.placeid
+        local players = tonumber(entry.player) or 99
+        if jobId and placeId and not seen[jobId]
+        and tostring(placeId) == tostring(CURRENT_PLACE_ID) then
+            seen[jobId] = true
+            table.insert(filtered, {jobid = jobId, players = players})
+        end
+    end
+    -- Ưu tiên server ít người nhất
+    table.sort(filtered, function(a, b) return a.players < b.players end)
+    return filtered, nil
+end
 
 local function HopApiCakePrince(maxPlayers, waitTime)
     isHopping = true
     maxPlayers = maxPlayers or 12
     waitTime   = waitTime   or 25
 
+    -- Reset FailedJobIds mỗi 10 phút
     if tick() - getgenv().LastApiRefresh > 600 then
-        getgenv().FailedJobIds  = {}
+        getgenv().FailedJobIds   = {}
         getgenv().LastApiRefresh = tick()
     end
 
-    local CURRENT_PLACE_ID = game.PlaceId
+    -- Load API lần đầu
+    SetText("Kata | Đang tải API...")
+    local filtered, err = FetchFilteredServers()
+    if not filtered then
+        SetText("Kata | " .. (err or "API lỗi") .. " – thử lại sau 5s")
+        task.wait(5)
+        isHopping = false
+        return false
+    end
 
-    local ok, result = pcall(function()
-        local responseBody
-        pcall(function() responseBody = game:HttpGet(CAKE_PRINCE_API) end)
-        if not responseBody then
-            local reqFunc = (syn and syn.request) or request or http.request
-            local req = reqFunc({ Url = CAKE_PRINCE_API, Method = "GET" })
-            responseBody = req.Body
+    SetText("Kata | API: " .. #filtered .. " server có Cake Prince (ưu tiên ít người)")
+
+    local triedCount = 0
+    local i = 1
+    while i <= #filtered do
+        if getgenv().StopKata then break end
+        local server  = filtered[i]
+        local jobId   = server.jobid
+        local players = server.players
+
+        -- Bỏ qua server không hợp lệ (không skip server đầy – vẫn hop nếu API ít server)
+        if jobId == game.JobId
+        or getgenv().FailedJobIds[jobId]
+        or HoppedJobIds[jobId] then
+            i = i + 1
+            continue
         end
 
-        local data = HttpService:JSONDecode(responseBody)
-        if not data or not data.success or type(data.data) ~= "table" or type(data.data.data) ~= "table" then
-            SetText("Kata | API sai dữ liệu, đợi...")
-            return false
-        end
-
-        -- Lọc server đúng placeId
-        local seen, servers = {}, {}
-        for _, entry in ipairs(data.data.data) do
-            local jobId  = entry.jobid
-            local placeId = entry.placeid
-            local players = tonumber(entry.player) or 99
-            if jobId and placeId then
-                if not seen[jobId] then
-                    seen[jobId] = true
-                    table.insert(servers, {jobid = jobId, placeid = placeId, players = players})
+        triedCount = triedCount + 1
+        -- Retry cùng 1 jobId tối đa 5 lần, cách nhau 1s
+        local retrySuccess = false
+        for retry = 1, 5 do
+            if getgenv().StopKata then
+                isHopping = false
+                return false
+            end
+            SetText("Kata | Hop [" .. retry .. "/5] → " .. players .. " người | " .. jobId:sub(1,8) .. "...")
+            local teleportOk = pcall(function()
+                RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", jobId)
+            end)
+            if teleportOk then
+                HopCount = HopCount + 1
+                HoppedJobIds[jobId] = true
+                if HopCount >= 10 then
+                    HopCount = 0
+                    HoppedJobIds = {}
+                    writefile(KATA_FILE, "[]")
+                    SetText("Kata | Reset " .. KATA_FILE)
+                else
+                    SaveHoppedJobIds()
                 end
+                task.wait(15)
+                retrySuccess = true
+                isHopping = false
+                return true
             end
-        end
-
-        local filtered = {}
-        for _, s in ipairs(servers) do
-            if tostring(s.placeid) == tostring(CURRENT_PLACE_ID) then
-                table.insert(filtered, s)
-            end
-        end
-        table.sort(filtered, function(a, b) return a.players < b.players end)
-        SetText("Kata | API: " .. #filtered .. " server có Cake Prince")
-
-        local triedCount = 0
-        for _, server in ipairs(filtered) do
-            local jobId  = server.jobid
-            local players = server.players
-
-            if jobId == game.JobId then continue end
-            if getgenv().FailedJobIds[jobId] then continue end
-            if HoppedJobIds[jobId] then continue end
-            if players >= maxPlayers then continue end
-
-            triedCount = triedCount + 1
-            -- Retry cùng 1 jobId tối đa 5 lần, mỗi lần cách 1s
-            local retrySuccess = false
-            for retry = 1, 5 do
-                if getgenv().StopKata then return false end
-                SetText("Kata | Hop [" .. retry .. "/5] → " .. players .. " người | " .. jobId:sub(1,8) .. "...")
-                local teleportOk = pcall(function()
-                    RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", jobId)
-                end)
-                if teleportOk then
-                    HopCount = HopCount + 1
-                    HoppedJobIds[jobId] = true
-                    -- Sau 10 lần hop → reset file
-                    if HopCount >= 10 then
-                        HopCount = 0
-                        HoppedJobIds = {}
-                        writefile(KATA_FILE, "[]")
-                        SetText("Kata | Reset " .. KATA_FILE)
-                    else
-                        SaveHoppedJobIds()
-                    end
-                    task.wait(15)
-                    retrySuccess = true
-                    return true
-                end
-                -- Chưa vào được → thử lại sau 1s
-                task.wait(1)
-            end
-            -- Sau 5 lần vẫn fail → đánh dấu jobId này và đổi sang jobId khác
-            if not retrySuccess then
-                getgenv().FailedJobIds[jobId] = tick()
-                SetText("Kata | Fail 5 lần server #" .. triedCount .. " → Đổi jobId...")
-            end
-        end
-
-        SetText("Kata | Hết server | Đợi API " .. waitTime .. "s...")
-        for i = waitTime, 1, -1 do
-            if getgenv().StopKata then return false end
-            SetText("Kata | Đợi API: " .. i .. "s")
             task.wait(1)
         end
-        return false
-    end)
+
+        -- Fail 5 lần → đánh dấu và đổi jobId
+        if not retrySuccess then
+            getgenv().FailedJobIds[jobId] = tick()
+            SetText("Kata | Fail 5 lần server #" .. triedCount .. " → Đổi jobId...")
+        end
+        i = i + 1
+
+        -- Hết danh sách hiện tại → reload API để rà soát lại toàn bộ
+        if i > #filtered then
+            SetText("Kata | Hết server → Reload API...")
+            task.wait(2)
+            local newList, newErr = FetchFilteredServers()
+            if newList and #newList > 0 then
+                filtered = newList
+                i = 1
+                SetText("Kata | Reload xong: " .. #filtered .. " server")
+            else
+                -- Không có server mới → đợi rồi thử lại
+                SetText("Kata | Không có server mới | Đợi " .. waitTime .. "s...")
+                for w = waitTime, 1, -1 do
+                    if getgenv().StopKata then break end
+                    SetText("Kata | Đợi API: " .. w .. "s")
+                    task.wait(1)
+                end
+                -- Reload lần cuối
+                newList, newErr = FetchFilteredServers()
+                filtered = newList or {}
+                i = 1
+            end
+        end
+    end
 
     isHopping = false
-    return ok and result
+    return false
 end
-
 -- ============================================================
 --  KILL CAKE PRINCE  (logic target từ bigupcy + tên boss thay)
 -- ============================================================
 local function FindAndKillCakePrince()
     local boss = GetConnectionEnemies("Cake Prince")
     if not boss then return false end
-
     SetText("Kata | Tìm thấy Cake Prince! Attack...")
     local hrp = boss:FindFirstChild("HumanoidRootPart")
-
     repeat
         task.wait(0.3)
         if getgenv().StopKata then break end
         if not boss or not boss.Parent then break end
         hrp = boss:FindFirstChild("HumanoidRootPart")
         if not hrp then break end
-
         local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if not myHrp then task.wait(1); continue end
-
+        -- Nếu bị die: chờ respawn rồi TweenTo cổng để vào lại Mirror World
+        if not myHrp or (LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character:FindFirstChildOfClass("Humanoid").Health <= 0) then
+            SetText("Kata | Bị die! Đợi respawn...")
+            repeat task.wait(0.5)
+            until LP.Character
+                and LP.Character:FindFirstChild("HumanoidRootPart")
+                and LP.Character:FindFirstChildOfClass("Humanoid")
+                and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
+            SetText("Kata | Đã respawn → TweenTo cổng Mirror World...")
+            BypassTpToCakeLoaf()
+            task.wait(1)
+            continue
+        end
         local dist = (myHrp.Position - hrp.Position).Magnitude
         if dist > 80 then
             TweenTo(hrp.CFrame * CFrame.new(0, 15, 0))
             task.wait(0.5)
         end
-
         local hp = math.floor(boss.Humanoid.Health / boss.Humanoid.MaxHealth * 100)
         SetText("Kata | Cake Prince HP: " .. hp .. "% | Đang kill...")
         EquipByTip("Melee")
         BringMob()
         KillMonster("Cake Prince")
         pcall(function() getgenv().Attack() end)
-
     until not boss or not boss.Parent or boss.Humanoid.Health <= 0 or getgenv().StopKata
-
     if boss and boss.Parent and boss.Humanoid.Health <= 0 then
         SetText("Kata | Cake Prince đã chết!")
         task.wait(3)
@@ -1006,7 +990,6 @@ local function FindAndKillCakePrince()
     end
     return false
 end
-
 -- ============================================================
 --  ANTI STUCK
 -- ============================================================
@@ -1030,94 +1013,49 @@ task.spawn(function()
         end
     end
 end)
-
 -- ============================================================
---  KIỂM TRA ĐANG Ở ĐẢO CAKELOAF
+--  KIỂM TRA ĐANG Ở CakeLoaf (chỉ dùng khi mới khởi động)
 -- ============================================================
-local CAKELOAF_KEYWORDS = {"cakeloaf", "cake loaf", "cake_loaf", "cakeland"}
-
 local function IsOnCakeLoaf()
-    -- Check qua attribute CurrentLocation / ExactLocation
-    local loc = (LP:GetAttribute("CurrentLocation") or LP:GetAttribute("ExactLocation") or ""):lower()
-    for _, kw in ipairs(CAKELOAF_KEYWORDS) do
-        if loc:find(kw) then return true end
-    end
-    -- Check qua workspace MAP attribute (tên đảo)
-    local mapAttr = tostring(workspace:GetAttribute("MAP") or ""):lower()
-    for _, kw in ipairs(CAKELOAF_KEYWORDS) do
-        if mapAttr:find(kw) then return true end
-    end
-    -- Check qua tọa độ: gần GATE_POSITION là đang ở khu CakeLoaf
     local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local dist = (hrp.Position - GATE_POSITION).Magnitude
-        if dist < 3000 then return true end  -- trong vòng 3000 studs tính là đang ở khu vực
-    end
-    return false
+    if not hrp then return false end
+    return (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS
 end
-
 -- ============================================================
 --  MAIN LOOP
 -- ============================================================
 SetText("Kata | Khởi động Farm Cake Prince...")
 task.wait(2)
 
+-- Bước 0: Nếu mới bắt đầu mà chưa ở CakeLoaf → TweenTo đảo trước
+if not IsOnCakeLoaf() then
+    GoToCakeLoaf()
+    task.wait(1)
+end
+
 while not getgenv().StopKata do
     task.wait(1)
-
-    -- ┌─────────────────────────────────────────────┐
-    -- │  BƯỚC 0: Đảm bảo đang ở đảo CakeLoaf       │
-    -- └─────────────────────────────────────────────┘
-    if not IsOnCakeLoaf() then
-        SetText("Kata | Chưa ở CakeLoaf → Bypass TP đến đảo...")
-        BypassTpToCakeLoaf()
-        task.wait(2)
-        -- Kiểm tra lại sau khi tween
-        if not IsOnCakeLoaf() then
-            SetText("Kata | Vẫn chưa đến CakeLoaf → thử lại sau 2s...")
-            task.wait(2)
-            continue
-        end
-        SetText("Kata | Đã đến CakeLoaf!")
-        task.wait(1)
-    end
-
-    -- ┌─────────────────────────────────────────────┐
-    -- │  BƯỚC 1: Check có boss Cake Prince không    │
-    -- └─────────────────────────────────────────────┘
+    -- Bước 1: Check có boss Cake Prince không
     if HasCakePrince() then
         SetText("Kata | Có Cake Prince! Đang TP đến cổng...")
-
-        -- ┌─────────────────────────────────────────┐
-        -- │  BƯỚC 2: TP đến cổng Mirror World       │
-        -- └─────────────────────────────────────────┘
+        -- Bước 2: Bypass TP đến cổng Mirror World
         BypassTpToCakeLoaf()
         task.wait(2)
-
-        -- ┌─────────────────────────────────────────┐
-        -- │  BƯỚC 3: Kill boss                      │
-        -- └─────────────────────────────────────────┘
+        -- Bước 3: Kill boss
         local killed = FindAndKillCakePrince()
-
         if killed then
             SetText("Kata | Boss xong! HopAPI tìm boss mới...")
             task.wait(3)
-            -- Hop ngay sau khi kill để farm liên tục
             HopApiCakePrince(12, 25)
         else
-            -- Boss mất/không kill được → hop
             SetText("Kata | Không kill được boss → HopAPI...")
             task.wait(2)
             HopApiCakePrince(12, 15)
         end
-
     else
-        -- ┌─────────────────────────────────────────┐
-        -- │  BƯỚC 4: Không có boss → HopAPI         │
-        -- └─────────────────────────────────────────┘
+        -- Bước 4: Không có boss → HopAPI
         SetText("Kata | Không có Cake Prince → HopAPI...")
         HopApiCakePrince(12, 25)
     end
 end
-
 SetText("Kata | Đã dừng.")
