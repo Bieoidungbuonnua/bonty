@@ -816,12 +816,10 @@ local function DebugCakeLoafPosition()
 end
 
 -- ============================================================
---  BYPASS TP ĐẾN CỔNG MIRROR WORLD (đến thẳng cổng, offset để không stuck)
+--  BYPASS TP ĐẾN CỔNG MIRROR WORLD
 -- ============================================================
--- Tọa độ gốc cổng Mirror World (Cake Prince)
+-- Tọa độ cổng vào Mirror World (Cake Prince)
 local GATE_POSITION = Vector3.new(-2152.15, 120, -12398.39)
--- Offset thêm +60 Z để tween dừng trước cổng, không bị stuck vào tường/collision
-local GATE_APPROACH = CFrame.new(GATE_POSITION + Vector3.new(0, 5, 60))
 
 local function BypassTpToCakeLoaf()
     SetText("Kata | Bypass TP → Cổng Mirror World...")
@@ -835,11 +833,41 @@ local function BypassTpToCakeLoaf()
         if part:IsA("BasePart") then part.CanCollide = false end
     end
 
-    -- Tween thẳng đến điểm đứng trước cổng (offset +60 Z, +5 Y)
-    TweenTo(GATE_APPROACH)
-    task.wait(3)
+    -- Thử requestEntrance để server mở cổng
+    pcall(function()
+        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
+    end)
+    task.wait(0.5)
 
-    SetText("Kata | Đã đến trước cổng Mirror World!")
+    -- TP thẳng HRP vào tọa độ cổng (không dùng tween block tránh bị server đẩy ra)
+    -- Dùng vòng loop giữ tại cổng cho đến khi vào được Mirror World
+    local timeout = 15
+    local elapsed = 0
+    while elapsed < timeout do
+        task.wait(0.5)
+        elapsed = elapsed + 0.5
+
+        -- Kiểm tra đã vào Mirror World chưa
+        local loc = LP:GetAttribute("CurrentLocation") or LP:GetAttribute("ExactLocation") or ""
+        if loc:lower():find("mirror") or loc:lower():find("cake") then
+            SetText("Kata | Đã vào Mirror World!")
+            break
+        end
+
+        -- Giữ player tại tọa độ cổng mỗi tick (override server push-back)
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = CFrame.new(GATE_POSITION)
+        end
+
+        -- Tiếp tục gọi requestEntrance mỗi 2s
+        if elapsed % 2 < 0.6 then
+            pcall(function()
+                RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
+            end)
+        end
+    end
+
     task.wait(0.5)
 end
 
