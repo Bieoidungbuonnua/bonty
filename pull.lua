@@ -1146,5 +1146,5 @@ _G.PullLever = {
     Log               = Utils.Info,
 }
 
-Utils.Info("Ready. UI visible. _G.PullLever exposed.")
-Utils.Info("Click [RUN] in the UI or call Main() to start.")
+Utils.Info("Ready. Auto-starting Main()...")
+task.spawn(Main)
