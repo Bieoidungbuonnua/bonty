@@ -445,8 +445,18 @@ end
 local Cond = {}
 do
     local function GetV4State()
-        local s = Utils.Invoke("RaceV4Progress", "Check")
-        return type(s) == "number" and s or 0
+        local ok, s = pcall(function()
+            return RS.Remotes.CommF_:InvokeServer("RaceV4Progress", "Check")
+        end)
+        Utils.Info("[V4State] ok=" .. tostring(ok) .. " val=" .. tostring(s) .. " type=" .. type(s))
+        if ok and type(s) == "number" then return s end
+        -- Fallback: check LP Data attribute if remote fails
+        local ok2, attr = pcall(function() return LP.Data:FindFirstChild("RaceV4Progress") end)
+        if ok2 and attr then
+            local n = tonumber(attr.Value)
+            if n then Utils.Info("[V4State] fallback attr=" .. n); return n end
+        end
+        return 0
     end
 
     function Cond.HasValkyrieHelm()
@@ -473,7 +483,16 @@ do
 
     -- Sealed King dialogue state >= 2: Rip_Indra killed
     function Cond.HasKilledRipIndra()
-        return GetV4State() >= 2
+        local state = GetV4State()
+        if state >= 2 then return true end
+        -- Fallback: invoke Sealed_King NPC trực tiếp để đọc dialogue state
+        local ok, res = pcall(function()
+            return RS.Remotes.CommF_:InvokeServer("Sealed_King", "Dialogue")
+        end)
+        Utils.Info("[SealedKing] ok=" .. tostring(ok) .. " res=" .. tostring(res))
+        if ok and type(res) == "number" then return res >= 2 end
+        if ok and type(res) == "table" and res.state then return res.state >= 2 end
+        return false
     end
 
     -- Sealed King dialogue state >= 3: entered Temple entrance
