@@ -353,7 +353,20 @@ KillMonster = (function(x)
                 local vh = v:FindFirstChildWhichIsA("Humanoid")
                 local vhrp = v:FindFirstChild("HumanoidRootPart")
                 if vh and vh.Health > 0 and vhrp and v.Name == x then
-                    TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 20) + Vector3.new(0, vhrp.Position.Y > 60 and -20 or 20, 0)))
+                    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                    if not myHrp then return end
+                    local dist = (myHrp.Position - vhrp.Position).Magnitude
+                    if dist > 25 then
+                        TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 10) + Vector3.new(0, vhrp.Position.Y > 60 and -15 or 5, 0)))
+                        task.wait(0.3)
+                    end
+                    if tick() - lastKenCall >= 10 then
+                        lastKenCall = tick()
+                        pcall(function() RS.Remotes.CommE:FireServer("Ken", true) end)
+                    end
+                    if getgenv().Attack then
+                        getgenv().Attack()
+                    end
                     return
                 end
             end
@@ -516,10 +529,15 @@ local function GetV2()
                 local v = GetConnectionEnemies("Swan Pirate")
                 if v then
                     EquipByTip("Melee")
-                    repeat task.wait() KillMonster("Swan Pirate")
-                    until GetBP("Flower 3") or not v.Parent or v.Humanoid.Health <= 0
+                    repeat
+                        task.wait(0.15)
+                        KillMonster("Swan Pirate")
+                        BringMob()
+                    until GetBP("Flower 3") or not v.Parent or (v:FindFirstChildWhichIsA("Humanoid") and v:FindFirstChildWhichIsA("Humanoid").Health <= 0) or not workspace.Enemies:FindFirstChild("Swan Pirate")
                 else
+                    SetText("V2 | Swan Pirate chưa spawn → Đến vị trí")
                     TweenTo(CFrame.new(980.099, 121.331, 1287.209))
+                    task.wait(3)
                 end
             end
         elseif state == 2 then
