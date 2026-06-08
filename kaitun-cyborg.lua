@@ -311,73 +311,62 @@ local function BringMob()
     end
 end
 
+BringMonster = (function(name, count) count = count or 3
+    if count < 2 then return end
+    pcall(function() setscriptable(LP, "SimulationRadius", true) end)
+    pcall(function() sethiddenproperty(LP, "SimulationRadius", math.huge) end)
+    xpcall((function()
+        local mob, t = {}, nil
+        for _, v in next, workspace.Enemies:GetChildren() do
+            local h = v:FindFirstChildWhichIsA("Humanoid")
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if h and hrp and h.Health > 0 and (not name or v.Name == name)
+                and (HumanoidRootPart.Position - hrp.Position).Magnitude <= ((count or 3) * 250) then
+                if not table.find(mob, function(chosen)
+                    local chrp = chosen:FindFirstChild("HumanoidRootPart")
+                    return chrp and (hrp.Position - chrp.Position).Magnitude <= 5
+                end) then mob[#mob+1], t = v, t or hrp.CFrame
+                end
+                if #mob >= (count or 3) then break end
+            end
+        end
+        if not t then return end
+        for i = 1, #mob do
+            local hrp = mob[i]:FindFirstChild("HumanoidRootPart")
+            local h = mob[i]:FindFirstChildWhichIsA("Humanoid")
+            if hrp and (not isnetworkowner or isnetworkowner(hrp)) then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.CFrame = t * CFrame.new((i-1) * 2, 0, 0)
+            end
+        end
+    end), (function(r) warn("Modules Error [BM]: ".. r) end))
+end)
+
 --------------------------------------------------
 --------------------------------------------------
 local lastKenCall = tick()
-KillMonster = function(x)
+KillMonster = (function(x)
     xpcall(function()
         if workspace.Enemies:FindFirstChild(x) then
             for _, v in next, workspace.Enemies:GetChildren() do
                 local vh = v:FindFirstChildWhichIsA("Humanoid")
                 local vhrp = v:FindFirstChild("HumanoidRootPart")
                 if vh and vh.Health > 0 and vhrp and v.Name == x then
-                    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    if not myHrp then return end
-
-                    local toolTipConfig = CG["toolTip"] or "Melee"
-                    EquipByTip(toolTipConfig)
-
-                    local dx = myHrp.Position.X - vhrp.Position.X
-                    local dy = myHrp.Position.Y - vhrp.Position.Y
-                    local dz = myHrp.Position.Z - vhrp.Position.Z
-
-                    if dx*dx + dy*dy + dz*dz <= 4900 then
-                        if tick() - lastKenCall >= 10 then
-                            lastKenCall = tick()
-                            RS.Remotes.CommE:FireServer("Ken", true)
-                        end
-                    end
-
-                    if toolTipConfig == "Blox Fruit" then
-                        local currentHealth = vh.Health
-                        local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
-                        if currentHealth < prevHealth then
-                            StopTween()
-                            myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 10000000, vhrp.Position.Z)
-                        else
-                            StopTween()
-                            myHrp.CFrame = vhrp.CFrame
-                        end
-                        vh:SetAttribute("PrevHealth", currentHealth)
-                        BringMob()
-                        return
-                    else
-                        shouldTween = false
-                        local bossPos = vhrp.Position
-                        myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                        myHrp.CFrame = CFrame.new(bossPos.X, 10000000, bossPos.Z)
-                        myHrp.CFrame = CFrame.new(bossPos.X, bossPos.Y + 3, bossPos.Z)
-                        BringMob()
-                        return
-                    end
+                    TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 20) + Vector3.new(0, vhrp.Position.Y > 60 and -20 or 20, 0)))
+                    return
                 end
             end
         end
         for _, v in next, RS:GetChildren() do
             local vhrp = v:FindFirstChild("HumanoidRootPart")
             if v:IsA("Model") and vhrp and v.Name == x then
-                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if myHrp then
-                    shouldTween = false
-                    myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, 10000000, vhrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 3, vhrp.Position.Z)
-                end
+                TweenTo(vhrp.CFrame)
                 return
             end
         end
     end, function(e) warn("Modules ERROR:", e) end)
-end
+end)
 --------------------------------------------------
 --------------------------------------------------
 
