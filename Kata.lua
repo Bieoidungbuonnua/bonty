@@ -95,53 +95,126 @@ spawn(function()
     end
 end)
 -- ============================================================
---  TWEEN / TP SYSTEM  (lấy từ bigupcy.lua)
+--  TWEEN / TP SYSTEM  (tối ưu: Heartbeat + stall detection)
 -- ============================================================
-local shouldTween = false
+local shouldTween    = false
+local tweenConn      = nil   -- Heartbeat connection hiện tại
+local antiFall       = nil   -- BodyVelocity singleton
+local lastBlockPos   = Vector3.zero
+local lastBlockMoved = tick()
+
 local block = Instance.new("Part", workspace)
-block.Name  = "TweenBlock_Kata"
-block.Size  = Vector3.new(1,1,1)
-block.Anchored  = true
-block.CanCollide = false
-block.CanTouch  = false
+block.Name        = "TweenBlock_Kata"
+block.Size        = Vector3.new(1,1,1)
+block.Anchored    = true
+block.CanCollide  = false
+block.CanTouch    = false
 block.Transparency = 1
-task.spawn(function()
-    while task.wait() do
+
+-- Tạo/lấy lại AntiFall BodyVelocity (singleton, chỉ tạo 1 lần / tween session)
+local function EnsureAntiFall()
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    if antiFall and antiFall.Parent == head then return end  -- đã có
+    -- Xóa cái cũ nếu có
+    local old = head:FindFirstChild("AntiFall")
+    if old then old:Destroy() end
+    local bv = Instance.new("BodyVelocity")
+    bv.Name      = "AntiFall"
+    bv.MaxForce  = Vector3.new(9e9, 9e9, 9e9)
+    bv.Velocity  = Vector3.zero
+    bv.Parent    = head
+    antiFall = bv
+end
+
+-- Xóa AntiFall sạch hoàn toàn
+local function RemoveAntiFall()
+    if antiFall then
+        pcall(function() antiFall:Destroy() end)
+        antiFall = nil
+    end
+    -- Xóa bất kỳ AntiFall còn sót
+    local char = LP.Character
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if head then
+        local af = head:FindFirstChild("AntiFall")
+        if af then af:Destroy() end
+    end
+end
+
+-- Dừng Heartbeat loop hiện tại
+local function StopHeartbeat()
+    if tweenConn then
+        tweenConn:Disconnect()
+        tweenConn = nil
+    end
+end
+
+function StopTween()
+    shouldTween = false
+    StopHeartbeat()
+    RemoveAntiFall()
+    -- Restore CanCollide
+    local char = LP.Character
+    if char then
+        for _, part in char:GetDescendants() do
+            if part:IsA("BasePart") then part.CanCollide = true end
+        end
+    end
+    -- Sync block về vị trí hiện tại
+    if block and char and char:FindFirstChild("HumanoidRootPart") then
+        block.CFrame = char.HumanoidRootPart.CFrame
+    end
+end
+
+-- Bắt đầu Heartbeat loop mới (mỗi lần gọi _tp)
+local function StartHeartbeat()
+    StopHeartbeat()  -- đảm bảo chỉ có 1 connection
+    tweenConn = RunService.Heartbeat:Connect(function()
+        if not shouldTween then StopHeartbeat() return end
         pcall(function()
-            if shouldTween and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local hrp = LP.Character.HumanoidRootPart
-                hrp.CFrame = block.CFrame
-                local Head = LP.Character:FindFirstChild("Head")
-                if Head and not Head:FindFirstChild("AntiFall") then
-                    local bv = Instance.new("BodyVelocity")
-                    bv.Name = "AntiFall"
-                    bv.MaxForce = Vector3.new(9e9, 9e9, 9e9)
-                    bv.Velocity = Vector3.zero
-                    bv.Parent = Head
-                end
-                for _, part in LP.Character:GetDescendants() do
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
+            local char = LP.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            -- Sync vị trí
+            hrp.CFrame = block.CFrame
+            -- Quản lý AntiFall (singleton)
+            EnsureAntiFall()
+            -- Tắt collision
+            for _, part in char:GetDescendants() do
+                if part:IsA("BasePart") then part.CanCollide = false end
             end
         end)
-    end
-end)
-local function _tp(target)
+    end)
+end
+
+function _tp(target)
     if not target then return end
     target = typeof(target) ~= "CFrame" and CFrame.new(target) or target
     shouldTween = true
-    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        local dist = (block.Position - LP.Character.HumanoidRootPart.Position).Magnitude
-        if dist > 100 then block.CFrame = LP.Character.HumanoidRootPart.CFrame end
+    -- Snap block về HRP nếu quá xa
+    local char = LP.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local dist = (block.Position - hrp.Position).Magnitude
+        if dist > 100 then block.CFrame = hrp.CFrame end
     end
-    if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character.Humanoid.Sit then
-        block.CFrame = CFrame.new(block.Position.X, target.Y, block.Position.Z)
-    end
+    -- Tween block
     local dist  = (block.Position - target.Position).Magnitude
     local speed = 350
     local time  = math.max(dist / speed, 0.1)
     local tween = TS:Create(block, TweenInfo.new(time, Enum.EasingStyle.Linear), {CFrame = target})
+    -- Reset stall tracker
+    lastBlockPos   = block.Position
+    lastBlockMoved = tick()
+    -- Bắt Heartbeat loop
+    StartHeartbeat()
     tween:Play()
+    -- Watcher: huỷ tween nếu shouldTween bị tắt
     task.spawn(function()
         while tween.PlaybackState == Enum.PlaybackState.Playing do
             if not shouldTween then tween:Cancel() break end
@@ -149,23 +222,33 @@ local function _tp(target)
         end
     end)
 end
+
 function TweenTo(Position)
     if not Position then return end
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
     Position = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
     if LP:GetAttribute("ExactLocation") == "Submerged Island" then
         RS:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("TeleportToSpawn")
         task.wait(6)
     end
-    block.CFrame = LP.Character.HumanoidRootPart.CFrame
+    block.CFrame = char.HumanoidRootPart.CFrame
     _tp(Position)
 end
-function StopTween()
-    shouldTween = false
-    if block and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-        block.CFrame = LP.Character.HumanoidRootPart.CFrame
+
+-- Stall detection: chạy song song trong GoToCakeLoaf/BypassTp
+-- Trả về true nếu block đang di chuyển bình thường
+local function IsTweenMoving()
+    local moved = (block.Position - lastBlockPos).Magnitude
+    if moved > 1 then
+        lastBlockPos   = block.Position
+        lastBlockMoved = tick()
+        return true
     end
+    -- Chưa move quá 3s = stall
+    return (tick() - lastBlockMoved) < 3
 end
+
 -- ============================================================
 --  LABEL UI
 -- ============================================================
@@ -717,65 +800,150 @@ LoadHoppedJobIds()
 -- ============================================================
 --  TỌA ĐỘ
 -- ============================================================
--- Điểm đổ bộ đảo CakeLoaf để kiểm tra & tween đến khi mới bắt đầu
+-- Tọa độ chính xác cần đứng trước khi làm gì
 local CAKELOAF_LAND   = Vector3.new(-1762, 38, -11878)
-local CAKELOAF_RADIUS = 300   -- ngưỡng "đang ở CakeLoaf" (dùng khi check ban đầu)
--- Tọa độ cổng Mirror World (giữ nguyên từ 1.lua)
+local CAKELOAF_RADIUS = 60    -- phạm vi xác nhận "đang ở CakeLoaf"
+-- Tọa độ cổng Mirror World
 local GATE_POSITION   = Vector3.new(-2152.15, 120, -12398.39)
+local GATE_CONFIRM_RADIUS = 60   -- phạm vi xác nhận "đã qua cổng"
 
--- TweenTo đến đảo CakeLoaf (chỉ chạy một lần khi mới vào, trước HopAPI)
-local function GoToCakeLoaf()
-    SetText("Kata | TweenTo → đảo CakeLoaf...")
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    TweenTo(CFrame.new(CAKELOAF_LAND))
-    -- Chờ tween chạy xong (dist < CAKELOAF_RADIUS hoặc timeout 60s)
-    local t = 0
-    while t < 60 do
-        task.wait(0.5)
-        t = t + 0.5
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp and (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS then
-            StopTween()
-            SetText("Kata | Đã đến CakeLoaf!")
-            task.wait(0.5)
-            return
-        end
-    end
-    StopTween()
+-- Kiểm tra đang ở CakeLoaf (bán kính chặt)
+local function IsOnCakeLoaf()
+    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    return (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS
 end
 
--- TweenTo cổng Mirror World (giống 1.lua: requestEntrance + tween + chờ dist < 50)
+-- Kiểm tra đã vào Mirror World:
+-- ưu tiên ExactLocation attribute, fallback dist từ cổng
+local function IsInsideMirrorWorld()
+    local loc = pcall(function() return LP:GetAttribute("ExactLocation") end)
+        and LP:GetAttribute("ExactLocation")
+    if loc then
+        local s = tostring(loc):lower()
+        if s:find("mirror") or s:find("cake") then return true end
+    end
+    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    return (hrp.Position - GATE_POSITION).Magnitude <= GATE_CONFIRM_RADIUS
+end
+
+-- TweenTo đến đảo CakeLoaf.
+-- Tween chạy đến đích, không stop giữa đường.
+-- Có stall detection: nếu tween bị stuck > 3s thì retry ngay.
+local function GoToCakeLoaf()
+    if IsOnCakeLoaf() then
+        SetText("Kata | Đã ở CakeLoaf, tiếp tục...")
+        return
+    end
+    local attempt = 0
+    while not getgenv().StopKata do
+        attempt = attempt + 1
+        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then task.wait(1) continue end
+        local distStart = math.floor((hrp.Position - CAKELOAF_LAND).Magnitude)
+        SetText("Kata | [Đi CakeLoaf #" .. attempt .. "] dist=" .. distStart)
+        TweenTo(CFrame.new(CAKELOAF_LAND))
+        -- Reset stall tracker ngay sau khi bắt đầu tween
+        lastBlockPos   = block.Position
+        lastBlockMoved = tick()
+        -- Chờ tween đến đích, timeout 90s, stall = retry ngay
+        local t = 0
+        local arrived = false
+        local stalled = false
+        while t < 90 and not getgenv().StopKata do
+            task.wait(0.5)
+            t = t + 0.5
+            local h = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if h then
+                local d = (h.Position - CAKELOAF_LAND).Magnitude
+                if d <= CAKELOAF_RADIUS then arrived = true break end
+                -- Stall detection: tween bị kẹt
+                if not IsTweenMoving() then
+                    stalled = true break
+                end
+                -- Hiện tiến trình mỗi 5s
+                if math.floor(t) % 5 == 0 then
+                    SetText("Kata | [Đi CakeLoaf] dist=" .. math.floor(d) .. " | " .. math.floor(t) .. "s")
+                end
+            end
+        end
+        -- Final check
+        if not arrived then
+            local h = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            if h and (h.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS then
+                arrived = true
+            end
+        end
+        StopTween()
+        if arrived then
+            local h = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            local fd = h and math.floor((h.Position - CAKELOAF_LAND).Magnitude) or "?"
+            SetText("Kata | ✓ CakeLoaf! dist=" .. fd .. " → tiếp tục...")
+            task.wait(0.3)
+            return
+        end
+        if stalled then
+            SetText("Kata | Tween stall! Retry #" .. attempt + 1 .. "...")
+        else
+            local h = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+            local d = h and math.floor((h.Position - CAKELOAF_LAND).Magnitude) or "?"
+            SetText("Kata | Timeout 90s (dist=" .. d .. ") Retry #" .. attempt + 1 .. "...")
+        end
+        task.wait(1)
+    end
+end
+
+-- BypassTpToCakeLoaf:
+-- 1) requestEntrance để server mở Mirror World
+-- 2) TweenTo GATE_POSITION
+-- 3) BLOCK cho đến khi xác nhận 100% đã vào Mirror World
+-- Có stall detection: retry ngay nếu tween bị kẹt
 local function BypassTpToCakeLoaf()
     SetText("Kata | Bypass TP → Cổng Mirror World...")
-    local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not myHrp then return end
-    -- Patch bypass: tắt collision toàn thân
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
+    -- Tắt collision toàn thân
     for _, part in LP.Character:GetDescendants() do
         if part:IsA("BasePart") then part.CanCollide = false end
     end
-    -- requestEntrance để server mở vùng Mirror World
-    pcall(function()
-        RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
-    end)
-    task.wait(1)
-    -- Tween đến cổng Mirror World
-    TweenTo(CFrame.new(GATE_POSITION))
-    -- Chờ tween về gần đích (dist < 50 hoặc timeout 20s)
-    local timeout = 20
-    local elapsed = 0
-    while elapsed < timeout do
+    local attempt = 0
+    while not getgenv().StopKata do
+        attempt = attempt + 1
+        SetText("Kata | [Bypass #" .. attempt .. "] requestEntrance + TweenTo cổng...")
+        -- Gọi requestEntrance mỗi lần thử
+        pcall(function()
+            RS.Remotes.CommF_:InvokeServer("requestEntrance", GATE_POSITION)
+        end)
         task.wait(0.5)
-        elapsed = elapsed + 0.5
-        local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local dist = (hrp.Position - GATE_POSITION).Magnitude
-            if dist < 50 then
-                SetText("Kata | Đã đến cổng Mirror World!")
-                break
+        -- TweenTo cổng
+        TweenTo(CFrame.new(GATE_POSITION))
+        -- Reset stall tracker
+        lastBlockPos   = block.Position
+        lastBlockMoved = tick()
+        -- Chờ xác nhận vào Mirror World, tối đa 15s, stall = retry ngay
+        local t = 0
+        local stalled = false
+        while t < 15 and not getgenv().StopKata do
+            task.wait(0.3)
+            t = t + 0.3
+            if IsInsideMirrorWorld() then
+                StopTween()
+                local hrp2 = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                local dist2 = hrp2 and math.floor((hrp2.Position - GATE_POSITION).Magnitude) or "?"
+                SetText("Kata | ✓ Mirror World! dist=" .. dist2)
+                task.wait(1)  -- chờ 1s cho server load vùng
+                return        -- xác nhận xong, thoát hàm
+            end
+            -- Stall detection
+            if not IsTweenMoving() then
+                stalled = true break
             end
         end
+        -- Chưa vào được → StopTween + retry
+        StopTween()
+        SetText("Kata | Chưa vào Mirror World, thử lại...")
+        task.wait(1)
     end
-    task.wait(1)
 end
 -- ============================================================
 --  KIỂM TRA BOSS CAKE PRINCE
@@ -900,12 +1068,18 @@ local function HopApiCakePrince(maxPlayers, waitTime)
                 else
                     SaveHoppedJobIds()
                 end
-                task.wait(15)
+                -- BUG FIX 2: Đặt flag để thoát khỏi while loop bên ngoài,
+                -- vì return true ở đây chỉ thoát for-retry, không thoát while
                 retrySuccess = true
-                isHopping = false
-                return true
+                break  -- thoát for retry
             end
             task.wait(1)
+        end
+        -- Thoát while loop khi hop thành công
+        if retrySuccess then
+            task.wait(15)
+            isHopping = false
+            return true
         end
 
         -- Fail 5 lần → đánh dấu và đổi jobId
@@ -997,13 +1171,19 @@ task.spawn(function()
     local lastPos   = Vector3.zero
     local stuckTime = 0
     while task.wait(1) do
-        if not getgenv().StopKata and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        -- BUG FIX 3: Không trigger HopAPI khi đang isHopping hoặc đang có boss
+        -- (đứng yên đánh boss sẽ bị anti-stuck nhầm là stuck)
+        if not getgenv().StopKata and not isHopping
+        and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
             local currentPos = LP.Character.HumanoidRootPart.Position
             if (currentPos - lastPos).Magnitude < 2 then
                 stuckTime = stuckTime + 1
                 if stuckTime >= 120 then
-                    SetText("Kata | Stuck 120s → HopAPI!")
-                    HopApiCakePrince(12, 10)
+                    -- Chỉ hop nếu không đang kill boss
+                    if not HasCakePrince() then
+                        SetText("Kata | Stuck 120s → HopAPI!")
+                        HopApiCakePrince(12, 10)
+                    end
                     stuckTime = 0
                 end
             else
@@ -1013,35 +1193,35 @@ task.spawn(function()
         end
     end
 end)
--- ============================================================
---  KIỂM TRA ĐANG Ở CakeLoaf (chỉ dùng khi mới khởi động)
--- ============================================================
-local function IsOnCakeLoaf()
-    local hrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-    return (hrp.Position - CAKELOAF_LAND).Magnitude <= CAKELOAF_RADIUS
-end
+
 -- ============================================================
 --  MAIN LOOP
 -- ============================================================
 SetText("Kata | Khởi động Farm Cake Prince...")
 task.wait(2)
 
--- Bước 0: Nếu mới bắt đầu mà chưa ở CakeLoaf → TweenTo đảo trước
-if not IsOnCakeLoaf() then
-    GoToCakeLoaf()
-    task.wait(1)
-end
-
 while not getgenv().StopKata do
     task.wait(1)
+
+    -- Bước 0: Bắt buộc phải ở (-1762, 38, -11878) trước khi làm bất cứ thứ gì
+    -- Chỉ skip nếu đã THỰC SỰ trong Mirror World (đã qua cổng)
+    -- KHÔNG skip chỉ vì HasCakePrince() → fix: tránh tween gate từ đảo khác
+    while not IsOnCakeLoaf() and not IsInsideMirrorWorld() and not getgenv().StopKata do
+        GoToCakeLoaf()
+        if not IsOnCakeLoaf() and not IsInsideMirrorWorld() then
+            SetText("Kata | Chưa ở CakeLoaf, đợi 2s rồi thử lại...")
+            task.wait(2)
+        end
+    end
+    if getgenv().StopKata then break end
+
     -- Bước 1: Check có boss Cake Prince không
     if HasCakePrince() then
-        SetText("Kata | Có Cake Prince! Đang TP đến cổng...")
-        -- Bước 2: Bypass TP đến cổng Mirror World
+        SetText("Kata | Có Cake Prince! Bypass TP → cổng Mirror World...")
+        -- Bước 2: Bypass TP + xác nhận 100% vào Mirror World
         BypassTpToCakeLoaf()
-        task.wait(2)
-        -- Bước 3: Kill boss
+        if getgenv().StopKata then break end
+        -- Bước 3: Kill boss (chỉ chạy sau khi đã xác nhận trong Mirror World)
         local killed = FindAndKillCakePrince()
         if killed then
             SetText("Kata | Boss xong! HopAPI tìm boss mới...")
