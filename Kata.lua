@@ -68,7 +68,7 @@ isHopping = false
 -- Auto rejoin khi bị lỗi / security kick
 local function RejoinSelf()
     pcall(function()
-        RS:WaitForChild("__ServerBrowser"):InvokeServer("teleport", game.JobId)
+        game:GetService("TeleportService"):Teleport(game.PlaceId, LP)
     end)
 end
 game:GetService("CoreGui").RobloxPromptGui.promptOverlay.ChildAdded:Connect(function(child)
