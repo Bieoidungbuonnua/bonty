@@ -797,6 +797,51 @@ local function IsInsideMirrorWorld()
     return (hrp.Position - GATE_POSITION).Magnitude <= GATE_CONFIRM_RADIUS
 end
 
+-- ============================================================
+--  SPAWN SAVE AT CAKELOAF
+--  Khi player đến CakeLoaf → đặt spawn tại đó → nếu die/lỗi TP
+--  thì respawn đúng chỗ thay vì đảo ngẫu nhiên
+-- ============================================================
+local kataSpawnPart = nil
+
+local function SetSpawnAtCakeLoaf()
+    pcall(function()
+        -- Xóa spawn cũ nếu có
+        if kataSpawnPart and kataSpawnPart.Parent then
+            kataSpawnPart:Destroy()
+        end
+        -- Tạo SpawnLocation ảo tại CAKELOAF_LAND
+        local sp = Instance.new("SpawnLocation")
+        sp.Name               = "KataSpawnPoint"
+        sp.Position           = CAKELOAF_LAND
+        sp.Size               = Vector3.new(6, 1, 6)
+        sp.Anchored           = true
+        sp.CanCollide         = false
+        sp.Transparency       = 1
+        sp.Duration           = 0          -- không time-out
+        sp.AllowTeamChangeOnTouch = false
+        sp.Neutral            = true
+        sp.TeamColor          = BrickColor.new("White")
+        sp.Parent             = workspace
+        kataSpawnPart = sp
+        -- Gắn spawn cho player
+        LP.RespawnLocation = sp
+        print("[Kata] ✓ Spawn được lưu tại CakeLoaf:", CAKELOAF_LAND)
+    end)
+end
+
+-- Xóa spawn đã lưu (gọi trước khi HopAPI để không bị respawn lại ở server cũ)
+local function ClearCakeLoafSpawn()
+    pcall(function()
+        if kataSpawnPart and kataSpawnPart.Parent then
+            kataSpawnPart:Destroy()
+        end
+        kataSpawnPart      = nil
+        LP.RespawnLocation = nil
+        print("[Kata] Spawn CakeLoaf đã xóa (chuẩn bị HopAPI)")
+    end)
+end
+
 -- TweenTo đến đảo CakeLoaf.
 -- Tween chạy đến đích, không stop giữa đường.
 -- Có stall detection: nếu tween bị stuck > 3s thì retry ngay.
@@ -848,7 +893,9 @@ local function GoToCakeLoaf()
         if arrived then
             local h = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
             local fd = h and math.floor((h.Position - CAKELOAF_LAND).Magnitude) or "?"
-            SetText("Kata | ✓ CakeLoaf! dist=" .. fd .. " → tiếp tục...")
+            -- Lưu spawn tại CakeLoaf ngay khi xác nhận đến nơi
+            SetSpawnAtCakeLoaf()
+            SetText("Kata | ✓ CakeLoaf! dist=" .. fd .. " | Spawn đã lưu → tiếp tục...")
             task.wait(0.3)
             return
         end
@@ -1151,6 +1198,7 @@ task.spawn(function()
                     -- Chỉ hop nếu không đang kill boss
                     if not HasCakePrince() then
                         SetText("Kata | Stuck 120s → HopAPI!")
+                        ClearCakeLoafSpawn()
                         HopApiCakePrince(12, 10)
                     end
                     stuckTime = 0
@@ -1195,15 +1243,18 @@ while not getgenv().StopKata do
         if killed then
             SetText("Kata | Boss xong! HopAPI tìm boss mới...")
             task.wait(3)
+            ClearCakeLoafSpawn()   -- xóa spawn trước khi hop sang server mới
             HopApiCakePrince(12, 25)
         else
             SetText("Kata | Không kill được boss → HopAPI...")
             task.wait(2)
+            ClearCakeLoafSpawn()   -- xóa spawn trước khi hop sang server mới
             HopApiCakePrince(12, 15)
         end
     else
         -- Bước 4: Không có boss → HopAPI
         SetText("Kata | Không có Cake Prince → HopAPI...")
+        ClearCakeLoafSpawn()       -- xóa spawn trước khi hop sang server mới
         HopApiCakePrince(12, 25)
     end
 end
