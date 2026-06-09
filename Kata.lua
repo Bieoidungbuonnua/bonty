@@ -1,4 +1,4 @@
-repeat wait() until game:IsLoaded() and game.Players.LocalPlayer 
+repeat task.wait(0.5) until game:IsLoaded() and game.Players.LocalPlayer and game.Players.LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
