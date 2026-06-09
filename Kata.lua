@@ -6,6 +6,12 @@ end
 -- ============================================================
 --  KATA.LUA  |  Farm Cake Prince (Boss World 3)
 -- ============================================================
+-- ============================================================
+--  🔧 CONFIG
+-- ============================================================
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1513757837384482866/yUuRnsq9UUBZ0CH7BrckTsfikduggq0JrsZMg6pTVbWN8LQyEvAP39_K7U9Op9Q-mV6f"  -- Dán Discord Webhook URL vào đây
+                         -- Ví dụ: "https://discord.com/api/webhooks/123456/abcdef"
+-- ============================================================
 
 local RS_ = game:GetService("ReplicatedStorage")
 local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
@@ -239,6 +245,42 @@ label.TextColor3 = Color3.fromRGB(255, 255, 0)
 local function SetText(newText)
     label.Text = newText
     print("[Kata] " .. tostring(newText))
+end
+
+-- ============================================================
+--  DISCORD WEBHOOK
+-- ============================================================
+local killCount = 0  -- số boss kill trong session này
+
+local function SendWebhook(fragCount)
+    if not WEBHOOK_URL or WEBHOOK_URL == "" then return end
+    task.spawn(function()
+        pcall(function()
+            local frags   = fragCount or 0
+            local timeStr = os.date("%H:%M:%S")
+            local body    = HttpService:JSONEncode({
+                embeds = {{
+                    title  = "🍰 Cake Prince Killed!",
+                    color  = 0x00e5ff,
+                    fields = {
+                        { name = "👤 Player",    value = LP.Name,          inline = true },
+                        { name = "💎 Fragments", value = tostring(frags),   inline = true },
+                        { name = "🗡️ Kill #",   value = tostring(killCount), inline = true },
+                    },
+                    footer = { text = "Kata Farm • " .. timeStr },
+                }}
+            })
+            local reqFn = (syn and syn.request) or (http and http.request) or request
+            if reqFn then
+                reqFn({
+                    Url     = WEBHOOK_URL,
+                    Method  = "POST",
+                    Headers = { ["Content-Type"] = "application/json" },
+                    Body    = body,
+                })
+            end
+        end)
+    end)
 end
 -- ============================================================
 --  UTIL FUNCTIONS
@@ -1174,7 +1216,11 @@ local function FindAndKillCakePrince()
         pcall(function() getgenv().Attack() end)
     until not boss or not boss.Parent or boss.Humanoid.Health <= 0 or getgenv().StopKata
     if boss and boss.Parent and boss.Humanoid.Health <= 0 then
-        SetText("Kata | Cake Prince đã chết!")
+        killCount = killCount + 1
+        local frags = 0
+        pcall(function() frags = LP.Data.Fragments.Value end)
+        SetText("Kata | 🍰 Cake Prince đã chết! Kill #" .. killCount .. " | Frag: " .. frags)
+        SendWebhook(frags)
         task.wait(3)
         return true
     end
