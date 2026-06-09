@@ -1,3 +1,4 @@
+repeat wait() until game:IsLoaded() and game.Players.LocalPlayer 
 if not LPH_OBFUSCATED then
     LPH_ENCSTR = LPH_ENCSTR or function(...) return ... end
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
@@ -95,12 +96,10 @@ spawn(function()
     end
 end)
 -- ============================================================
---  TWEEN / TP SYSTEM  (tối ưu: Heartbeat + stall detection)
+--  TWEEN / TP SYSTEM  (copy từ autocy.lua – proven stable)
 -- ============================================================
-local shouldTween    = false
-local tweenConn      = nil   -- Heartbeat connection hiện tại
-local antiFall       = nil   -- BodyVelocity singleton
-local lastBlockPos   = Vector3.zero
+local shouldTween  = false
+local lastBlockPos = Vector3.zero
 local lastBlockMoved = tick()
 
 local block = Instance.new("Part", workspace)
@@ -111,99 +110,80 @@ block.CanCollide  = false
 block.CanTouch    = false
 block.Transparency = 1
 
--- Tạo/lấy lại AntiFall BodyVelocity (singleton, chỉ tạo 1 lần / tween session)
-local function EnsureAntiFall()
-    local char = LP.Character
-    if not char then return end
-    local head = char:FindFirstChild("Head")
-    if not head then return end
-    if antiFall and antiFall.Parent == head then return end  -- đã có
-    -- Xóa cái cũ nếu có
-    local old = head:FindFirstChild("AntiFall")
-    if old then old:Destroy() end
-    local bv = Instance.new("BodyVelocity")
-    bv.Name      = "AntiFall"
-    bv.MaxForce  = Vector3.new(9e9, 9e9, 9e9)
-    bv.Velocity  = Vector3.zero
-    bv.Parent    = head
-    antiFall = bv
-end
-
--- Xóa AntiFall sạch hoàn toàn
-local function RemoveAntiFall()
-    if antiFall then
-        pcall(function() antiFall:Destroy() end)
-        antiFall = nil
-    end
-    -- Xóa bất kỳ AntiFall còn sót
-    local char = LP.Character
-    if not char then return end
+-- Guard: khi character respawn → xóa AntiFall zombie khỏi character cũ
+LP.CharacterAdded:Connect(function(char)
+    char:WaitForChild("Head", 10)
     local head = char:FindFirstChild("Head")
     if head then
         local af = head:FindFirstChild("AntiFall")
         if af then af:Destroy() end
     end
-end
-
--- Dừng Heartbeat loop hiện tại
-local function StopHeartbeat()
-    if tweenConn then
-        tweenConn:Disconnect()
-        tweenConn = nil
+    -- Nếu đang tween khi respawn → reset block về HRP mới
+    task.wait(0.1)
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hrp and shouldTween then
+        block.CFrame = hrp.CFrame
     end
-end
+end)
+
+-- Background loop (y hệt autocy.lua)
+task.spawn(function()
+    while task.wait() do
+        pcall(function()
+            if shouldTween and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                local hrp = LP.Character.HumanoidRootPart
+                hrp.CFrame = block.CFrame
+                -- Stall tracker: theo dõi block có đang move không
+                local moved = (block.Position - lastBlockPos).Magnitude
+                if moved > 1 then
+                    lastBlockPos   = block.Position
+                    lastBlockMoved = tick()
+                end
+                local Head = LP.Character:FindFirstChild("Head")
+                if Head and not Head:FindFirstChild("AntiFall") then
+                    local bv = Instance.new("BodyVelocity")
+                    bv.Name      = "AntiFall"
+                    bv.MaxForce  = Vector3.new(9e9, 9e9, 9e9)
+                    bv.Velocity  = Vector3.zero
+                    bv.Parent    = Head
+                end
+                for _, part in LP.Character:GetDescendants() do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+            end
+        end)
+    end
+end)
 
 function StopTween()
     shouldTween = false
-    StopHeartbeat()
-    RemoveAntiFall()
-    -- Restore CanCollide
-    local char = LP.Character
-    if char then
-        for _, part in char:GetDescendants() do
+    -- Xóa AntiFall + restore CanCollide
+    if LP.Character then
+        local head = LP.Character:FindFirstChild("Head")
+        if head then
+            local af = head:FindFirstChild("AntiFall")
+            if af then af:Destroy() end
+        end
+        for _, part in LP.Character:GetDescendants() do
             if part:IsA("BasePart") then part.CanCollide = true end
         end
     end
-    -- Sync block về vị trí hiện tại
-    if block and char and char:FindFirstChild("HumanoidRootPart") then
-        block.CFrame = char.HumanoidRootPart.CFrame
+    if block and LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        block.CFrame = LP.Character.HumanoidRootPart.CFrame
     end
-end
-
--- Bắt đầu Heartbeat loop mới (mỗi lần gọi _tp)
-local function StartHeartbeat()
-    StopHeartbeat()  -- đảm bảo chỉ có 1 connection
-    tweenConn = RunService.Heartbeat:Connect(function()
-        if not shouldTween then StopHeartbeat() return end
-        pcall(function()
-            local char = LP.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            -- Sync vị trí
-            hrp.CFrame = block.CFrame
-            -- Quản lý AntiFall (singleton)
-            EnsureAntiFall()
-            -- Tắt collision
-            for _, part in char:GetDescendants() do
-                if part:IsA("BasePart") then part.CanCollide = false end
-            end
-        end)
-    end)
 end
 
 function _tp(target)
     if not target then return end
     target = typeof(target) ~= "CFrame" and CFrame.new(target) or target
     shouldTween = true
-    -- Snap block về HRP nếu quá xa
-    local char = LP.Character
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local dist = (block.Position - hrp.Position).Magnitude
-        if dist > 100 then block.CFrame = hrp.CFrame end
+    if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+        local dist = (block.Position - LP.Character.HumanoidRootPart.Position).Magnitude
+        if dist > 100 then block.CFrame = LP.Character.HumanoidRootPart.CFrame end
     end
-    -- Tween block
+    if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character.Humanoid.Sit then
+        block.CFrame = CFrame.new(block.Position.X, target.Y, block.Position.Z)
+    end
     local dist  = (block.Position - target.Position).Magnitude
     local speed = 350
     local time  = math.max(dist / speed, 0.1)
@@ -211,10 +191,7 @@ function _tp(target)
     -- Reset stall tracker
     lastBlockPos   = block.Position
     lastBlockMoved = tick()
-    -- Bắt Heartbeat loop
-    StartHeartbeat()
     tween:Play()
-    -- Watcher: huỷ tween nếu shouldTween bị tắt
     task.spawn(function()
         while tween.PlaybackState == Enum.PlaybackState.Playing do
             if not shouldTween then tween:Cancel() break end
@@ -225,27 +202,19 @@ end
 
 function TweenTo(Position)
     if not Position then return end
-    local char = LP.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") then return end
+    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
     Position = typeof(Position) ~= "CFrame" and CFrame.new(Position) or Position
     if LP:GetAttribute("ExactLocation") == "Submerged Island" then
         RS:WaitForChild("Remotes"):WaitForChild("CommF_"):InvokeServer("TeleportToSpawn")
         task.wait(6)
     end
-    block.CFrame = char.HumanoidRootPart.CFrame
+    block.CFrame = LP.Character.HumanoidRootPart.CFrame
     _tp(Position)
 end
 
--- Stall detection: chạy song song trong GoToCakeLoaf/BypassTp
--- Trả về true nếu block đang di chuyển bình thường
+-- Stall detection: dùng trong GoToCakeLoaf/BypassTp để retry ngay khi stuck
 local function IsTweenMoving()
-    local moved = (block.Position - lastBlockPos).Magnitude
-    if moved > 1 then
-        lastBlockPos   = block.Position
-        lastBlockMoved = tick()
-        return true
-    end
-    -- Chưa move quá 3s = stall
+    -- block không dịch chuyển > 3s = stall
     return (tick() - lastBlockMoved) < 3
 end
 
@@ -965,7 +934,7 @@ end
 -- ============================================================
 --  HOP API ĐẾN SERVER CÓ CAKE PRINCE  (tối ưu)
 -- ============================================================
-local CAKE_PRINCE_API = "http://mbasic7.pikamc.vn:25082/api/name=cakeprince?apikey=CONCACDUMAMAY"
+local CAKE_PRINCE_API = "http://mbasic7.pikamc.vn:25082/api/name=cakeprince?apikey=MTRCHILL"
 
 -- Hàm load API nhanh, trả về danh sách server đã lọc+sort theo ít người
 local function FetchFilteredServers()
