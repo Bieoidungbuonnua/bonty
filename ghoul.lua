@@ -971,11 +971,16 @@ local function HasRaceV2(raceName)
 end
 
 local function PrintV2Status()
+    if type(getgenv().RaceList) ~= "table" then
+        warn("[KaitunGhoul] RaceList chưa được set, bỏ qua PrintV2Status")
+        return
+    end
     print(" V2 Status:")
     for _, race in ipairs(getgenv().RaceList) do
         print(HasRaceV2(race) and ("   " .. race) or ("   " .. race))
     end
-    print("Version Race :" .. RS.Remotes.CommF_:InvokeServer("getRaceLevel"))
+    local ok, lv = pcall(function() return RS.Remotes.CommF_:InvokeServer("getRaceLevel") end)
+    print("Version Race :" .. tostring(ok and lv or "?"))
 end
 local function BringMob()
     pcall(function()
