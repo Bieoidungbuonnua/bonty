@@ -458,19 +458,39 @@ local function MAX_CHESTS_FarmChestFast()
         for _, part in LP.Character:GetDescendants() do
             if part:IsA("BasePart") then part.CanCollide = false end
         end
+
+        -- Lưu vị trí an toàn trước khi TP vào chest
+        -- để sau khi open xong có thể nhảy về, tránh server giật làm miss chest kế
+        local safePos = LP.Character.HumanoidRootPart.CFrame
+        local chestCF = chest.CFrame
+
         local attempts = 0
         repeat
             attempts = attempts + 1
             if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
             if not chest or not chest.Parent then break end
             if CheckTool("Fist of Darkness") then return "FOD" end
-            LP.Character.HumanoidRootPart.CFrame = chest.CFrame
-            task.wait(0.3)
-        until not chest.CanTouch or attempts > 15
+            -- TP thẳng vào chest
+            LP.Character.HumanoidRootPart.CFrame = chestCF
+            task.wait(0.1)
+            -- Nếu server giật về (vị trí thực tế không còn tại chest), TP lại ngay
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                local curPos = LP.Character.HumanoidRootPart.Position
+                if (curPos - chestCF.Position).Magnitude > 5 then
+                    LP.Character.HumanoidRootPart.CFrame = chestCF
+                end
+            end
+        until not chest.CanTouch or attempts > 20
+
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
+            -- Giật về vị trí an toàn ngay sau khi open để sẵn sàng cho chest kế
+            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
+                LP.Character.HumanoidRootPart.CFrame = safePos
+            end
         end
+
         if collected > 0 and collected % 10 == 0 then
             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
                 LP.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
