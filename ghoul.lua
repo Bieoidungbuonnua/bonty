@@ -36,8 +36,10 @@ local RunService = game:GetService("RunService")
 local CollectionService = game:GetService("CollectionService")
 local VIM = game:GetService("VirtualInputManager")
 local LP = game:GetService("Players").LocalPlayer
-GatCanChuaNguoiDep = RS.Remotes.CommF_:InvokeServer('CheckTempleDoor')
-AiChoMaDiGatCan = RS.Remotes.CommF_:InvokeServer('RaceV4Progress', 'Check') == 4
+local _s1, _r1 = pcall(function() return RS.Remotes.CommF_:InvokeServer('CheckTempleDoor') end)
+GatCanChuaNguoiDep = _s1 and _r1 or false
+local _s2, _r2 = pcall(function() return RS.Remotes.CommF_:InvokeServer('RaceV4Progress', 'Check') end)
+AiChoMaDiGatCan = _s2 and _r2 == 4 or false
 Services = setmetatable({}, {__index = function(self, name)
     local s, c = pcall(function() return cloneref(game:GetService(name)) end)
     if s then rawset(self, name, c) return c
@@ -206,12 +208,12 @@ local function HopToServerByAPI(filterNames, maxPlayers, waitTime)
     return ok and result
 end
 getgenv().StopV2 = false
-local Character = LP.Character
 repeat task.wait(2)
-until Character
-    and Character:FindFirstChild("HumanoidRootPart")
-    and Character:FindFirstChildWhichIsA("Humanoid")
-    and Character:IsDescendantOf(workspace.Characters)
+until LP.Character
+    and LP.Character:FindFirstChild("HumanoidRootPart")
+    and LP.Character:FindFirstChildWhichIsA("Humanoid")
+    and LP.Character:IsDescendantOf(workspace.Characters)
+local Character = LP.Character
 
 pcall(function() LP.PlayerGui:FindFirstChild("Blank"):Destroy() end)
 local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
@@ -1459,7 +1461,7 @@ getgenv().V2Farms = {
 
 PrintV2Status()
 
-SetText(table.concat(getgenv().RaceList, ", "))
+SetText(type(getgenv().RaceList) == "table" and table.concat(getgenv().RaceList, ", ") or "RaceList not set")
 local world = worldMap[placeIdd]
     if world == "World1" or world == "World3" then
         replicated = game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelDressrosa")
