@@ -29,7 +29,8 @@ local worldMap = {[2753915549] = "World1",[85211729168715] = "World1",[444227218
 local World2 = false
 
 
-local CG = getgenv().Config
+local CG = getgenv().Config or {}
+getgenv().RaceList = getgenv().RaceList or {"Ghoul"}
 local RS = game:GetService("ReplicatedStorage")
 local TS = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
