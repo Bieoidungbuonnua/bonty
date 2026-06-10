@@ -127,386 +127,19 @@ task.spawn(function()
     end
 end)
 
-_G.FastAttack = true
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Bieoidungbuonnua/bonty/refs/heads/main/m1-attack.txt"))()
 
-if _G.FastAttack then
-    local _ENV = (getgenv or getrenv or getfenv)()
-
-    local function SafeWaitForChild(parent, childName)
-        local success, result = pcall(function()
-            return parent:WaitForChild(childName, 10)
-        end)
-        if not success or not result then
-            warn("Không tìm thấy: " .. childName)
-        end
-        return result
-    end
-
-    local function WaitChilds(path, ...)
-        local last = path
-        for _, child in {...} do
-            last = last:FindFirstChild(child) or SafeWaitForChild(last, child)
-            if not last then break end
-        end
-        return last
-    end
-
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local CollectionService = game:GetService("CollectionService")
-    local ReplicatedStorage = game:GetService("ReplicatedStorage")
-    local TeleportService = game:GetService("TeleportService")
-    local RunService = game:GetService("RunService")
-    local Players = game:GetService("Players")
-    local Player = Players.LocalPlayer
-
-    if not Player then warn("Không tìm thấy người chơi cục bộ.") return end
-
-    local Remotes = SafeWaitForChild(ReplicatedStorage, "Remotes")
-    if not Remotes then return end
-
-    local Validator = SafeWaitForChild(Remotes, "Validator")
-    local CommF = SafeWaitForChild(Remotes, "CommF_")
-    local CommE = SafeWaitForChild(Remotes, "CommE")
-    local ChestModels = SafeWaitForChild(workspace, "ChestModels")
-    local WorldOrigin = SafeWaitForChild(workspace, "_WorldOrigin")
-    local Characters = SafeWaitForChild(workspace, "Characters")
-    local Enemies = SafeWaitForChild(workspace, "Enemies")
-    local Map = SafeWaitForChild(workspace, "Map")
-    local EnemySpawns = SafeWaitForChild(WorldOrigin, "EnemySpawns")
-    local Locations = SafeWaitForChild(WorldOrigin, "Locations")
-    local Modules = SafeWaitForChild(ReplicatedStorage, "Modules")
-    local Net = SafeWaitForChild(Modules, "Net")
-
-    local sethiddenproperty = sethiddenproperty or function(...) return ... end
-    local setupvalue = setupvalue or (debug and debug.setupvalue)
-    local getupvalue = getupvalue or (debug and debug.getupvalue)
-
-    local Settings = {
-        AutoClick = true,
-        ClickDelay = 0
-    }
-
-    local Module = {}
-
-    Module.FastAttack = (function()
-        if _ENV.rz_FastAttack then return _ENV.rz_FastAttack end
-
-        local FastAttack = {
-            Distance = 100,
-            attackMobs = true,
-            attackPlayers = true,
-            Equipped = nil
-        }
-
-        local RegisterAttack = SafeWaitForChild(Net, "RE/RegisterAttack")
-        local RegisterHit = SafeWaitForChild(Net, "RE/RegisterHit")
-
-        local function IsAlive(character)
-            return character and character:FindFirstChild("Humanoid") and character.Humanoid.Health > 0
-        end
-
-        local function ProcessEnemies(OthersEnemies, Folder)
-            local BasePart = nil
-            for _, Enemy in Folder:GetChildren() do
-                local Head = Enemy:FindFirstChild("Head")
-                if Head and IsAlive(Enemy) and Player:DistanceFromCharacter(Head.Position) < FastAttack.Distance then
-                    if Enemy ~= Player.Character then
-                        table.insert(OthersEnemies, {Enemy, Head})
-                        BasePart = Head
-                    end
-                end
-            end
-            return BasePart
-        end
-
-        function FastAttack:Attack(BasePart, OthersEnemies)
-            if not BasePart or #OthersEnemies == 0 then return end
-            RegisterAttack:FireServer(Settings.ClickDelay or 0)
-            RegisterHit:FireServer(BasePart, OthersEnemies)
-        end
-
-        function FastAttack:AttackNearest()
-            local OthersEnemies = {}
-            local Part1 = ProcessEnemies(OthersEnemies, Enemies)
-            local Part2 = ProcessEnemies(OthersEnemies, Characters)
-            local character = Player.Character
-            if not character then return end
-            local equippedWeapon = character:FindFirstChildOfClass("Tool")
-            if equippedWeapon and equippedWeapon:FindFirstChild("LeftClickRemote") then
-                for _, enemyData in ipairs(OthersEnemies) do
-                    local enemy = enemyData[1]
-                    local direction = (enemy.HumanoidRootPart.Position - character:GetPivot().Position).Unit
-                    pcall(function() equippedWeapon.LeftClickRemote:FireServer(direction, 1) end)
-                end
-            elseif #OthersEnemies > 0 then
-                self:Attack(Part1 or Part2, OthersEnemies)
-            else
-                task.wait(0)
-            end
-        end
-
-        function FastAttack:BladeHits()
-            local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
-            if Equipped and Equipped.ToolTip ~= "Gun" then
-                self:AttackNearest()
-            else
-                task.wait(0)
-            end
-        end
-
-        task.spawn(function()
-            while task.wait(Settings.ClickDelay) do
-                if Settings.AutoClick then
-                    FastAttack:BladeHits()
-                end
-            end
-        end)
-
-        _ENV.rz_FastAttack = FastAttack
-        return FastAttack
-    end)()
-end
-
--- Layer 2: remote + CombatUtil attack
-local remote, idremote
-for _, v in next, ({game.ReplicatedStorage.Util, game.ReplicatedStorage.Common, game.ReplicatedStorage.Remotes, game.ReplicatedStorage.Assets, game.ReplicatedStorage.FX}) do
-    pcall(function()
-        for _, n in next, v:GetChildren() do
-            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
-                remote, idremote = n, n:GetAttribute("Id")
-            end
-        end
-        v.ChildAdded:Connect(function(n)
-            if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
-                remote, idremote = n, n:GetAttribute("Id")
-            end
-        end)
-    end)
-end
-
-task.spawn(function()
-    while task.wait(0.05) do
-        local char = game.Players.LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then continue end
-        local parts = {}
-        for _, x in ipairs({workspace.Enemies, workspace.Characters}) do
-            for _, v in ipairs(x and x:GetChildren() or {}) do
-                local hrp = v:FindFirstChild("HumanoidRootPart")
-                local hum = v:FindFirstChild("Humanoid")
-                if v ~= char and hrp and hum and hum.Health > 0 and (hrp.Position - root.Position).Magnitude <= 60 then
-                    for _, _v in ipairs(v:GetChildren()) do
-                        if _v:IsA("BasePart") and (hrp.Position - root.Position).Magnitude <= 60 then
-                            parts[#parts + 1] = {v, _v}
-                        end
-                    end
-                end
-            end
-        end
-        local tool = char:FindFirstChildOfClass("Tool")
-        if #parts > 0 and tool and
-            (tool:GetAttribute("WeaponType") == "Melee" or tool:GetAttribute("WeaponType") == "Sword") then
-            pcall(function()
-                require(game.ReplicatedStorage.Modules.Net):RemoteEvent("RegisterHit", true)
-                game.ReplicatedStorage.Modules.Net["RE/RegisterAttack"]:FireServer()
-                local head = parts[1][1]:FindFirstChild("Head")
-                if not head then return end
-                game.ReplicatedStorage.Modules.Net["RE/RegisterHit"]:FireServer(head, parts, {}, tostring(
-                    game.Players.LocalPlayer.UserId):sub(2, 4) .. tostring(coroutine.running()):sub(11, 15))
-                if remote and idremote then
-                    pcall(function()
-                        cloneref(remote):FireServer(string.gsub("RE/RegisterHit", ".", function(c)
-                            return string.char(bit32.bxor(string.byte(c), math.floor(workspace:GetServerTimeNow() / 10 % 10) + 1))
-                        end), bit32.bxor(idremote + 909090, game.ReplicatedStorage.Modules.Net.seed:InvokeServer() * 2), head, parts)
-                    end)
-                end
-            end)
-        end
-    end
-end)
-
--- Layer 3: CombatUtil + WeaponData + SendHitsToServer
-local P = game:GetService("Players")
-local L = P.LocalPlayer
-local W = workspace
-local M = RS:WaitForChild("Modules")
-local CU, WD = nil, nil
-
-task.spawn(function()
-    local ok1, result1 = pcall(function() return require(M:WaitForChild("CombatUtil", 10)) end)
-    if ok1 then CU = result1 else warn("Không load được CombatUtil") end
-    local ok2, result2 = pcall(function() return require(M:WaitForChild("WeaponData", 10)) end)
-    if ok2 then WD = result2 else warn("Không load được WeaponData") end
-end)
-
-local N = M:FindFirstChild("Net")
-local RA = N and (N:FindFirstChild("RE/RegisterAttack") or N:FindFirstChild("RegisterAttack"))
-local RH = N and (N:FindFirstChild("RE/RegisterHit") or N:FindFirstChild("RegisterHit"))
-local IS
-do
-    local PS = L:WaitForChild("PlayerScripts")
-    for d, s in next, PS:GetChildren() do
-        if s:IsA("LocalScript") then
-            local ok, env = pcall(getsenv, s)
-            if ok and env and env._G and typeof(env._G.SendHitsToServer) == "function" then
-                IS = env._G.SendHitsToServer
-                break
-            end
-        end
-    end
-    if not IS and _G.SendHitsToServer then IS = _G.SendHitsToServer end
-end
-
-pcall(function()
-    hookfunction(CU.GetComboPaddingTime, function() return 0 end)
-    hookfunction(CU.GetAttackCancelMultiplier, function() return 0 end)
-    hookfunction(CU.CanAttack, function() return true end)
-end)
-
-local HList = {"RightLowerArm","RightUpperArm","LeftLowerArm","LeftUpperArm","RightHand","LeftHand","HumanoidRootPart","Head","UpperTorso","LowerTorso"}
-
-okm = function(m)
-    local h = m:FindFirstChildWhichIsA("Humanoid")
-    return h and h.Health > 0 and m:FindFirstChild("HumanoidRootPart") and not m:FindFirstChild("VehicleSeat")
-end
-
-hpt = function(m)
-    for _ = 1, 2 do
-        local p = m:FindFirstChild(HList[math.random(1, #HList)])
-        if p then return p end
-    end
-    return m:FindFirstChild("HumanoidRootPart")
-end
-
-near = function(r, maxN)
-    local out, ch = {}, L.Character
-    if not ch then return out end
-    local hrp = ch:FindFirstChild("HumanoidRootPart")
-    if not hrp then return out end
-    local p0 = hrp.Position
-    for _, grp in next, {W:FindFirstChild("Enemies"), W:FindFirstChild("Characters")} do
-        if grp then
-            for _, v in next, grp:GetChildren() do
-                if #out >= maxN then break end
-                if v ~= ch and okm(v) then
-                    local hr = v:FindFirstChild("HumanoidRootPart")
-                    if hr and (hr.Position - p0).Magnitude <= r then
-                        out[#out + 1] = v
-                    end
-                end
-            end
-        end
-    end
-    for _, pl in next, P:GetPlayers() do
-        if #out >= maxN then break end
-        if pl ~= L and pl.Character and okm(pl.Character) then
-            local hr = pl.Character:FindFirstChild("HumanoidRootPart")
-            if hr and (hr.Position - p0).Magnitude <= r then
-                out[#out + 1] = pl.Character
-            end
-        end
-    end
-    return out
-end
-
-pkg = function(t)
-    local main, hits = nil, {}
-    for _, v in next, t do
-        if okm(v) then
-            local p = hpt(v)
-            if p then
-                if not main then main = p end
-                hits[#hits + 1] = {v, p}
-            end
-        end
-    end
-    return main, hits
-end
-
-send = function(main, hits)
-    if main and #hits > 0 then
-        if IS then IS(main, hits)
-        elseif RH then RH:FireServer(main, hits) end
-    end
-end
-
-local AC, HM = {}, nil
-
-setH = function(c)
-    local h = c:FindFirstChildWhichIsA("Humanoid")
-    if h then HM = h; AC = {} end
-end
-
-if L.Character then setH(L.Character) end
-L.CharacterAdded:Connect(function(c)
-    c:WaitForChild("Humanoid")
-    setH(c)
-end)
-
-anim = function(tool)
-    if not (HM and tool and WD) then return end
-    local wn = CU:GetWeaponName(tool)
-    local data = WD[wn] or WD[string.lower(wn)] or WD[CU:GetPureWeaponName(wn)]
-    if not (data and data.Moveset and data.Moveset.Basic) then return end
-    local mv = data.Moveset.Basic
-    local a = mv[math.random(1, #mv)]
-    if not (a and a.AnimationId) then return end
-    if not AC[a.AnimationId] then
-        local n = Instance.new("Animation")
-        n.AnimationId = a.AnimationId
-        AC[a.AnimationId] = HM:LoadAnimation(n)
-    end
-    local tr = AC[a.AnimationId]
-    if tr then tr:Play(1, 1, 0.2) end
-end
-
-spawn(function()
-    while task.wait(0.019) do
-        local ok, err = pcall(function()
-            local ch = L.Character
-            if not ch then return end
-            local tool = ch:FindFirstChildOfClass("Tool")
-            if not tool then return end
-            local tg = near(60, 20)
-            if #tg == 0 then return end
-            local main, hits = pkg(tg)
-            if not main then return end
-            if RA then RA:FireServer(0) end
-            if _G.Animation then anim(tool) end
-            if _G.Seriality then
-                if tool.ToolTip == "Blox Fruit" then
-                    if tg then
-                        local LeftClickRemote = tool:FindFirstChild('LeftClickRemote')
-                        if LeftClickRemote then
-                            LeftClickRemote:FireServer(Vector3.new(0.01, -500, 0.01), 1, true)
-                            LeftClickRemote:FireServer(false)
-                        end
-                    end
-                end
-            end
-            task.defer(function()
-                pcall(function()
-                    CU:AttackStart(main, 1)
-                    CU:RunHitDetection(main.Parent or main, 1, {
-                        _Object = {Length = 0.02, IsPlaying = true}
-                    })
-                end)
-            end)
-            send(main, hits)
-        end)
-    end
-end)
-
--- Layer 3b: loadstring FastAttack
+ReplicatedStorage = RS
 FastAttack = loadstring([[
     local Modules = game.ReplicatedStorage.Modules
     local Net = Modules.Net
-    local Register_Hit, Register_Attack = Net:WaitForChild('RE/RegisterHit'), Net:WaitForChild('RE/RegisterAttack')
+    local Register_Hit = Net:WaitForChild("RE/RegisterHit")
+    local Register_Attack = Net:WaitForChild("RE/RegisterAttack")
     local Funcs = {}
     function GetAllBladeHits()
-        bladehits = {}
+        local bladehits = {}
         for _, v in pairs(workspace.Enemies:GetChildren()) do
-            if v:FindFirstChild('Humanoid') and v:FindFirstChild('HumanoidRootPart') and v.Humanoid.Health > 0 
+            if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0
             and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
                 table.insert(bladehits, v)
             end
@@ -514,46 +147,41 @@ FastAttack = loadstring([[
         return bladehits
     end
     function Getplayerhit()
-        bladehits = {}
+        local bladehits = {}
         for _, v in pairs(workspace.Characters:GetChildren()) do
-            if v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild('Humanoid') and v:FindFirstChild('HumanoidRootPart') and v.Humanoid.Health > 0 
+            if v.Name ~= game.Players.LocalPlayer.Name and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0
             and (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 65 then
                 table.insert(bladehits, v)
             end
         end
         return bladehits
     end
-    local Net = (Services.ReplicatedStorage.Modules.Net)
-    local RegisterAttack = require(Net):RemoteEvent('RegisterAttack', true)
-    local RegisterHit = require(Net):RemoteEvent('RegisterHit', true)
     function Funcs:Attack()
         local bladehits = {}
-        for r,v in pairs(GetAllBladeHits()) do table.insert(bladehits, v) end
-        for r,v in pairs(Getplayerhit()) do table.insert(bladehits, v) end
+        for _, v in pairs(GetAllBladeHits()) do table.insert(bladehits, v) end
+        for _, v in pairs(Getplayerhit()) do table.insert(bladehits, v) end
         if #bladehits == 0 then return end
-        local args = {[1]=nil,[2]={},[3]=nil,[4]="078da341"}
-        for r, v in pairs(bladehits) do
-            RegisterAttack:FireServer(0)
+        local args = {[1]=nil, [2]={}, [4]="078da341"}
+        for _, v in pairs(bladehits) do
+            Register_Attack:FireServer(0)
             if not args[1] then args[1] = v.Head end
-            table.insert(args[2], {[1]=v,[2]=v.HumanoidRootPart})
+            table.insert(args[2], {[1]=v, [2]=v.HumanoidRootPart})
             table.insert(args[2], v)
         end
-        RegisterHit:FireServer(unpack(args))
+        Register_Hit:FireServer(unpack(args))
     end
-    task.spawn(function() 
-        while task.wait(.05) do 
-            if _G.FastAttack == os.time() then 
+    task.spawn(function()
+        while task.wait(.05) do
+            if _G.FastAttack == os.time() then
                 pcall(function() Funcs:Attack() end)
-            end 
+            end
         end
     end)
-    getgenv().Attack = function(MonResult) 
+    getgenv().Attack = function()
         pcall(function() _G.FastAttack = os.time() end)
-    end 
+    end
 ]])
 if FastAttack then FastAttack() end
-
-ReplicatedStorage = RS
 
 local function invoke(...)
     local args = {...}
@@ -683,10 +311,42 @@ local function BringMob()
     end
 end
 
+BringMonster = (function(name, count) count = count or 3
+    if count < 2 then return end
+    pcall(function() setscriptable(LP, "SimulationRadius", true) end)
+    pcall(function() sethiddenproperty(LP, "SimulationRadius", math.huge) end)
+    xpcall((function()
+        local mob, t = {}, nil
+        for _, v in next, workspace.Enemies:GetChildren() do
+            local h = v:FindFirstChildWhichIsA("Humanoid")
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if h and hrp and h.Health > 0 and (not name or v.Name == name)
+                and (HumanoidRootPart.Position - hrp.Position).Magnitude <= ((count or 3) * 250) then
+                if not table.find(mob, function(chosen)
+                    local chrp = chosen:FindFirstChild("HumanoidRootPart")
+                    return chrp and (hrp.Position - chrp.Position).Magnitude <= 5
+                end) then mob[#mob+1], t = v, t or hrp.CFrame
+                end
+                if #mob >= (count or 3) then break end
+            end
+        end
+        if not t then return end
+        for i = 1, #mob do
+            local hrp = mob[i]:FindFirstChild("HumanoidRootPart")
+            local h = mob[i]:FindFirstChildWhichIsA("Humanoid")
+            if hrp and (not isnetworkowner or isnetworkowner(hrp)) then
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+                hrp.CFrame = t * CFrame.new((i-1) * 2, 0, 0)
+            end
+        end
+    end), (function(r) warn("Modules Error [BM]: ".. r) end))
+end)
+
 --------------------------------------------------
 --------------------------------------------------
 local lastKenCall = tick()
-KillMonster = function(x)
+KillMonster = (function(x)
     xpcall(function()
         if workspace.Enemies:FindFirstChild(x) then
             for _, v in next, workspace.Enemies:GetChildren() do
@@ -695,61 +355,31 @@ KillMonster = function(x)
                 if vh and vh.Health > 0 and vhrp and v.Name == x then
                     local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
                     if not myHrp then return end
-
-                    local toolTipConfig = CG["toolTip"] or "Melee"
-                    EquipByTip(toolTipConfig)
-
-                    local dx = myHrp.Position.X - vhrp.Position.X
-                    local dy = myHrp.Position.Y - vhrp.Position.Y
-                    local dz = myHrp.Position.Z - vhrp.Position.Z
-
-                    if dx*dx + dy*dy + dz*dz <= 4900 then
-                        if tick() - lastKenCall >= 10 then
-                            lastKenCall = tick()
-                            RS.Remotes.CommE:FireServer("Ken", true)
-                        end
+                    local dist = (myHrp.Position - vhrp.Position).Magnitude
+                    if dist > 25 then
+                        TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 10) + Vector3.new(0, vhrp.Position.Y > 60 and -15 or 5, 0)))
+                        task.wait(0.3)
                     end
-
-                    if toolTipConfig == "Blox Fruit" then
-                        local currentHealth = vh.Health
-                        local prevHealth = vh:GetAttribute("PrevHealth") or currentHealth
-                        if currentHealth < prevHealth then
-                            StopTween()
-                            myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 10000000, vhrp.Position.Z)
-                        else
-                            StopTween()
-                            myHrp.CFrame = vhrp.CFrame
-                        end
-                        vh:SetAttribute("PrevHealth", currentHealth)
-                        BringMob()
-                        return
-                    else
-                        shouldTween = false
-                        local bossPos = vhrp.Position
-                        myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                        myHrp.CFrame = CFrame.new(bossPos.X, 10000000, bossPos.Z)
-                        myHrp.CFrame = CFrame.new(bossPos.X, bossPos.Y + 3, bossPos.Z)
-                        BringMob()
-                        return
+                    if tick() - lastKenCall >= 10 then
+                        lastKenCall = tick()
+                        pcall(function() RS.Remotes.CommE:FireServer("Ken", true) end)
                     end
+                    if getgenv().Attack then
+                        getgenv().Attack()
+                    end
+                    return
                 end
             end
         end
         for _, v in next, RS:GetChildren() do
             local vhrp = v:FindFirstChild("HumanoidRootPart")
             if v:IsA("Model") and vhrp and v.Name == x then
-                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                if myHrp then
-                    shouldTween = false
-                    myHrp.CFrame = CFrame.new(myHrp.Position.X, 10000000, myHrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, 10000000, vhrp.Position.Z)
-                    myHrp.CFrame = CFrame.new(vhrp.Position.X, vhrp.Position.Y + 3, vhrp.Position.Z)
-                end
+                TweenTo(vhrp.CFrame)
                 return
             end
         end
     end, function(e) warn("Modules ERROR:", e) end)
-end
+end)
 --------------------------------------------------
 --------------------------------------------------
 
@@ -899,10 +529,15 @@ local function GetV2()
                 local v = GetConnectionEnemies("Swan Pirate")
                 if v then
                     EquipByTip("Melee")
-                    repeat task.wait() KillMonster("Swan Pirate")
-                    until GetBP("Flower 3") or not v.Parent or v.Humanoid.Health <= 0
+                    repeat
+                        task.wait(0.15)
+                        KillMonster("Swan Pirate")
+                        BringMob()
+                    until GetBP("Flower 3") or not v.Parent or (v:FindFirstChildWhichIsA("Humanoid") and v:FindFirstChildWhichIsA("Humanoid").Health <= 0) or not workspace.Enemies:FindFirstChild("Swan Pirate")
                 else
+                    SetText("V2 | Swan Pirate chưa spawn → Đến vị trí")
                     TweenTo(CFrame.new(980.099, 121.331, 1287.209))
+                    task.wait(3)
                 end
             end
         elseif state == 2 then
@@ -1019,7 +654,7 @@ local function GetCyborgFirstTime()
                                 if vhrp and myHrp then
                                     shouldTween = true
                                     block.CFrame = myHrp.CFrame
-                                    local target = CFrame.new(vhrp.Position + Vector3.new(0, 15, 0))
+                                    local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
                                     local dist = (block.Position - target.Position).Magnitude
                                     local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
                                     tween:Play()
