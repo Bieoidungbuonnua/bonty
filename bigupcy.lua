@@ -459,36 +459,26 @@ local function MAX_CHESTS_FarmChestFast()
             if part:IsA("BasePart") then part.CanCollide = false end
         end
 
-        -- Lưu vị trí an toàn trước khi TP vào chest
-        -- để sau khi open xong có thể nhảy về, tránh server giật làm miss chest kế
-        local safePos = LP.Character.HumanoidRootPart.CFrame
-        local chestCF = chest.CFrame
-
-        local attempts = 0
+        -- Cơ chế cy-tanny: loop từng frame, force CanTouch=false sau 2s để chống stuck
         repeat
-            attempts = attempts + 1
-            if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then break end
-            if not chest or not chest.Parent then break end
-            if CheckTool("Fist of Darkness") then return "FOD" end
-            -- TP thẳng vào chest
-            LP.Character.HumanoidRootPart.CFrame = chestCF
-            task.wait(0.1)
-            -- Nếu server giật về (vị trí thực tế không còn tại chest), TP lại ngay
-            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                local curPos = LP.Character.HumanoidRootPart.Position
-                if (curPos - chestCF.Position).Magnitude > 5 then
-                    LP.Character.HumanoidRootPart.CFrame = chestCF
-                end
+            task.wait()
+            SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
+            -- Force thoát sau 2 giây nếu server không phản hồi (chống stuck vĩnh viễn)
+            task.delay(2, function() if chest and chest.Parent then chest.CanTouch = false end end)
+            -- SetPrimaryPartCFrame di chuyển toàn bộ character đến chest
+            if LP.Character and LP.Character.PrimaryPart then
+                LP.Character:SetPrimaryPartCFrame(chest.CFrame)
             end
-        until not chest.CanTouch or attempts > 20
+            -- Nhấn Space mỗi frame để trigger touch chest
+            VIM:SendKeyEvent(true, "Space", false, game)
+            VIM:SendKeyEvent(false, "Space", false, game)
+        until not chest.CanTouch or CheckTool("Fist of Darkness") or getgenv().StopV3
+
+        if CheckTool("Fist of Darkness") then return "FOD" end
 
         if not chest.CanTouch then
             collected = collected + 1
             SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
-            -- Giật về vị trí an toàn ngay sau khi open để sẵn sàng cho chest kế
-            if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
-                LP.Character.HumanoidRootPart.CFrame = safePos
-            end
         end
 
         if collected > 0 and collected % 10 == 0 then
