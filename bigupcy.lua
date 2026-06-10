@@ -426,79 +426,69 @@ local function HasUnlockedCyborg()
     return RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Check") == true
 end
 
+local _chestAll = 0
 local function MAX_CHESTS_FarmChestFast()
-    if not LP.Character or not LP.Character:FindFirstChild("HumanoidRootPart") then return end
-    local Chests = CollectionService:GetTagged("_ChestTagged")
-    local Position = LP.Character.HumanoidRootPart.Position
-    local sorted = {}
-    for _, chest in ipairs(Chests) do
-        if chest:IsA("BasePart") and chest.CanTouch and not chest:GetAttribute("IsDisabled") then
-            table.insert(sorted, {obj=chest, dist=(chest.Position - Position).Magnitude})
+    local chests, c = {}, 0
+    if _chestAll < MAX_CHESTS_PER_SERVER and not CheckTool("Fist of Darkness") then
+        for _, v in next, CollectionService:GetTagged("_ChestTagged") do
+            if v and v.CanTouch then
+                local dist = (v.Position - LP.Character.HumanoidRootPart.Position).Magnitude
+                table.insert(chests, {obj = v, dist = dist})
+            end
         end
-    end
-    table.sort(sorted, function(a, b) return a.dist < b.dist end)
+        table.sort(chests, function(a, b) return a.dist < b.dist end)
 
-    if #sorted == 0 then
-        SetText("Not Found Chest → Hop")
-        HopServer(5)
-        return
-    end
-
-    local collected = 0
-    for _, data in ipairs(sorted) do
-        if getgenv().StopV3 then break end
-        if CheckTool("Fist of Darkness") then return "FOD" end
-        if collected >= MAX_CHESTS_PER_SERVER then
-            SetText("Done " .. MAX_CHESTS_PER_SERVER .. " → Hop")
+        if not CheckTool("Fist of Darkness") then
+            for i, t in next, chests do
+                local v = t.obj
+                if v:IsA("BasePart") and v.Name:find("Chest") then
+                    if v.CanTouch then
+                        repeat
+                            task.wait()
+                            SetText("Collect Chests | " .. c .. "/" .. _chestAll .. "/" .. MAX_CHESTS_PER_SERVER .. " Chests")
+                            task.delay(2, function() if v and v.Parent then v.CanTouch = false end end)
+                            if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
+                                LP.Character:SetPrimaryPartCFrame(v.CFrame)
+                            end
+                            VIM:SendKeyEvent(true, "Space", false, game)
+                            VIM:SendKeyEvent(false, "Space", false, game)
+                        until not v.CanTouch or CheckTool("Fist of Darkness") or getgenv().StopV3
+                        c += 1
+                        _chestAll += 1
+                        if _chestAll >= MAX_CHESTS_PER_SERVER then
+                            SetText("Done " .. MAX_CHESTS_PER_SERVER .. " → Hop")
+                            HopServer(5)
+                            return
+                        end
+                        if CheckTool("Fist of Darkness") then
+                            SetText("Stopped: Fist of Darkness detected")
+                            return "FOD"
+                        end
+                        if getgenv().StopV3 then return end
+                        if LP.Character and c >= 10 and not CheckTool("Fist of Darkness") then
+                            if LP.Character:FindFirstChildOfClass("Humanoid") then
+                                LP.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
+                                SetText("Collect Chests | Reset: " .. c .. " Chests")
+                            end
+                            c = 0
+                            task.wait(1)
+                            repeat task.wait(0.5)
+                            until LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                                and LP.Character:FindFirstChildOfClass("Humanoid")
+                                and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
+                        end
+                    end
+                    if i % 250 == 0 then task.wait(0.1) end
+                end
+            end
+        else
+            StopTween()
+            SetText("Stopped: Found Special Item")
+        end
+        if not CheckTool("Fist of Darkness") then
+            SetText("Chest | Hết → Hop")
             HopServer(5)
-            return
         end
-        local chest = data.obj
-        if not chest or not chest.Parent or not chest.CanTouch then continue end
-        for _, part in LP.Character:GetDescendants() do
-            if part:IsA("BasePart") then part.CanCollide = false end
-        end
-
-        -- Cơ chế cy-tanny: loop từng frame, force CanTouch=false sau 2s để chống stuck
-        repeat
-            task.wait()
-            SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
-            -- Force thoát sau 2 giây nếu server không phản hồi (chống stuck vĩnh viễn)
-            task.delay(2, function() if chest and chest.Parent then chest.CanTouch = false end end)
-            -- SetPrimaryPartCFrame di chuyển toàn bộ character đến chest
-            if LP.Character and LP.Character.PrimaryPart then
-                LP.Character:SetPrimaryPartCFrame(chest.CFrame)
-            end
-            -- Nhấn Space mỗi frame để trigger touch chest
-            VIM:SendKeyEvent(true, "Space", false, game)
-            VIM:SendKeyEvent(false, "Space", false, game)
-        until not chest.CanTouch or CheckTool("Fist of Darkness") or getgenv().StopV3
-
-        if CheckTool("Fist of Darkness") then return "FOD" end
-
-        if not chest.CanTouch then
-            collected = collected + 1
-            SetText("Chest | " .. collected .. "/" .. MAX_CHESTS_PER_SERVER)
-        end
-
-        if collected > 0 and collected % 10 == 0 then
-            if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") then
-                LP.Character:FindFirstChildOfClass("Humanoid"):ChangeState(Enum.HumanoidStateType.Dead)
-                task.wait(3)
-                repeat task.wait(0.5)
-                until LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                    and LP.Character:FindFirstChildOfClass("Humanoid")
-                    and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0
-            end
-        end
-    end
-    SetText("Chest | Hết (" .. collected .. ") → Hop")
-    task.wait(2)
-    HopServer(5)
-    task.wait(10)
-    if not getgenv().StopV3 then
-        SetText("Chest | Fallback Hop...")
-        HopServer(3)
     end
 end
 
