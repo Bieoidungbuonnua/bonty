@@ -13,7 +13,6 @@ ConChoChisiti36 = {
     Tools = {}
 }
 
-repeat task.wait(0.5) until game:IsLoaded() and game.Players.LocalPlayer and game.Players.LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
 while not game.Players.LocalPlayer.Character
    or not game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart") do
 local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
@@ -1341,7 +1340,7 @@ local function GetGhoulFirstTime()
     SetText(" Start Get Ghoul Race")
 
     while not getgenv().StopV2 do
-        task.wait(.5)
+        task.wait(0.5)
 
 
         if getCurrentRace() == "Ghoul" then
