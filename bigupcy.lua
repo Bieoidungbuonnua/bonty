@@ -619,7 +619,10 @@ local function GetCyborgFirstTime()
         task.wait(1)
         if getCurrentRace() == "Cyborg" then SetText("Have Cyborg!") break end
 
-        local frags = LP.Data.Fragments.Value
+        -- Đọc frags an toàn với pcall (tránh đọc stale khi data chưa sync)
+        local frags = 0
+        pcall(function() frags = LP.Data.Fragments.Value end)
+
         if frags >= 2500 then
             RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Buy")
             task.wait(2)
@@ -628,12 +631,6 @@ local function GetCyborgFirstTime()
 
         local state = "NaN"
         pcall(function() state = readfile(cyborgFile) end)
-
-        -- Thiếu frags → đổi acc qua FARMSYNC thay vì thông báo
-        if frags < 2500 and state ~= "NaN" then
-            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags) .. " → Đổi acc...")
-            FarmSyncChangeAcc("Không đủ fragment mua race Cyborg (" .. frags .. "/2500)")
-        end
 
         if state == "NaN" then
             if not CheckSea(2) then
@@ -712,11 +709,11 @@ local function GetCyborgFirstTime()
                     end
                     if not orderFound then
                         if not CheckTool("Microchip") and not CheckTool("Core Brain") then
-                            local frags2 = LP.Data.Fragments.Value
+                            local frags2 = 0
+                            pcall(function() frags2 = LP.Data.Fragments.Value end)
                             if frags2 >= 1000 then
                                 RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                             else
-                                -- Thiếu frags mua chip → đổi acc qua FARMSYNC
                                 SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2) .. " → Đổi acc...")
                                 FarmSyncChangeAcc("Không đủ fragment mua Microchip (" .. frags2 .. "/1000)")
                                 continue
@@ -728,12 +725,12 @@ local function GetCyborgFirstTime()
                 end
             else
                 -- Chưa có Microchip/Core Brain → thử mua chip
-                local frags2 = LP.Data.Fragments.Value
+                local frags2 = 0
+                pcall(function() frags2 = LP.Data.Fragments.Value end)
                 if frags2 >= 1000 then
                     SetText("GET CYBORG | Mua Microchip...")
                     RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                 else
-                    -- Thiếu frags mua chip → đổi acc qua FARMSYNC
                     SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2) .. " → Đổi acc...")
                     FarmSyncChangeAcc("Không đủ fragment mua Microchip (" .. frags2 .. "/1000)")
                     task.wait(3)
