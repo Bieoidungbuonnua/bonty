@@ -3,6 +3,40 @@ if not LPH_OBFUSCATED then
     LPH_NO_VIRTUALIZE = LPH_NO_VIRTUALIZE or function(...) return ... end
 end
 
+-- ================================================
+-- FARMSYNC CONFIG (đặt lên đầu file)
+-- ================================================
+local FARMSYN_FOLDERS = {
+    idle = "b8ff2a869e7688680d78b4a52245ef4af881b1e5f6c2501aa10f09d4eaaa96e5",
+    done = "6902232f9e8eb629a987b2d5c8e863a120214f0eddfa18ba41ce814ae6f0ee57",
+    key  = "08f6c4d56ae89e235b379cb959246b5f24dec430bcc1a6bd1ba24d86593d8a6d"
+}
+
+-- Hàm đổi acc qua FARMSYNC khi không đủ frags
+local function FarmSyncChangeAcc(reason)
+    warn("[FARMSYNC] " .. (reason or "Không đủ fragment") .. " → Đang đổi acc...")
+    local success = pcall(function()
+        getgenv().client:ChangeToFolder( 
+            FARMSYN_FOLDERS.idle,
+            FARMSYN_FOLDERS.done,
+            true,
+            FARMSYN_FOLDERS.key
+        )
+    end)
+    if success then
+        warn("[FARMSYNC] ChangeToFolder thành công, đang disconnect...")
+        pcall(function()
+            getgenv().client:Disconnect()
+        end)
+        task.wait(5)
+        game:Shutdown()
+    else
+        warn("[FARMSYNC] ChangeToFolder thất bại, thử lại sau 10 giây...")
+        task.wait(10)
+    end
+end
+-- ================================================
+
 local RS_ = game:GetService("ReplicatedStorage")
 local CommF_ = RS_:WaitForChild("Remotes"):WaitForChild("CommF_")
 
@@ -16,7 +50,6 @@ end
 local placeIdd = game.PlaceId
 local worldMap = {[2753915549]="World1",[85211729168715]="World1",[4442272183]="World2",[79091703265657]="World2",[7449423635]="World3",[100117331123089]="World3"}
 
-local CG = getgenv().Config
 local RS = game:GetService("ReplicatedStorage")
 local TS = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -77,24 +110,6 @@ until Character
 
 pcall(function() LP.PlayerGui:FindFirstChild("Blank"):Destroy() end)
 local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
-
-if CG["Black Screen"] then
-    local BlankScreen = Instance.new("ScreenGui", LP.PlayerGui)
-    BlankScreen.Name = "Blank"
-    BlankScreen.ResetOnSpawn = false
-    BlankScreen.DisplayOrder = -math.huge
-    BlankScreen.IgnoreGuiInset = true
-    local Black = Instance.new("Frame", BlankScreen)
-    Black.Name = "Black Screen"
-    Black.Size = UDim2.new(1, 0, 1, 0)
-    Black.BackgroundColor3 = Color3.new(0, 0, 0)
-    Black.ZIndex = -math.huge
-    if Black.Visible then RunService:Set3dRenderingEnabled(false) end
-end
-
-local function SetText(newText)
-    print(newText)
-end
 
 local shouldTween = false
 local block = Instance.new("Part", workspace)
@@ -357,7 +372,7 @@ KillMonster = (function(x)
                     if not myHrp then return end
                     local dist = (myHrp.Position - vhrp.Position).Magnitude
                     if dist > 25 then
-                        TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 10) + Vector3.new(0, vhrp.Position.Y > 60 and -15 or 5, 0)))
+                        TweenTo(CFrame.new(vhrp.Position + (vhrp.CFrame.LookVector * 20) + Vector3.new(0, vhrp.Position.Y > 60 and -20 or 20, 0)))
                         task.wait(0.3)
                     end
                     if tick() - lastKenCall >= 10 then
@@ -529,11 +544,11 @@ local function GetV2()
                 local v = GetConnectionEnemies("Swan Pirate")
                 if v then
                     EquipByTip("Melee")
+                    BringMob()
                     repeat
-                        task.wait(0.15)
+                        task.wait()
                         KillMonster("Swan Pirate")
-                        BringMob()
-                    until GetBP("Flower 3") or not v.Parent or (v:FindFirstChildWhichIsA("Humanoid") and v:FindFirstChildWhichIsA("Humanoid").Health <= 0) or not workspace.Enemies:FindFirstChild("Swan Pirate")
+                    until GetBP("Flower 3") or not v.Parent or v.Humanoid.Health <= 0
                 else
                     SetText("V2 | Swan Pirate chưa spawn → Đến vị trí")
                     TweenTo(CFrame.new(980.099, 121.331, 1287.209))
@@ -585,16 +600,10 @@ local function GetCyborgFirstTime()
         local state = "NaN"
         pcall(function() state = readfile(cyborgFile) end)
 
-        -- check frags nếu thiếu
+        -- Thiếu frags → đổi acc qua FARMSYNC thay vì thông báo
         if frags < 2500 and state ~= "NaN" then
-            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "WARNING",
-                Text = "KHÔNG ĐỦ FRAGMENT MUA RACE (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags),
-                Duration = 5,
-                Icon = "rbxassetid://123456789",
-                Callback = nil
-            })
+            SetText("GET CYBORG | Không Đủ Fragment Để Buy Race (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags) .. " → Đổi acc...")
+            FarmSyncChangeAcc("Không đủ fragment mua race Cyborg (" .. frags .. "/2500)")
         end
 
         if state == "NaN" then
@@ -679,15 +688,9 @@ local function GetCyborgFirstTime()
                             if frags2 >= 1000 then
                                 RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                             else
-                                SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
-                                game:GetService("StarterGui"):SetCore("SendNotification", {
-                                    Title = "WARNING",
-                                    Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
-                                    Duration = 5,
-                                    Icon = "rbxassetid://123456789",
-                                    Callback = nil
-                                })
-                                task.wait(3)
+                                -- Thiếu frags mua chip → đổi acc qua FARMSYNC
+                                SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2) .. " → Đổi acc...")
+                                FarmSyncChangeAcc("Không đủ fragment mua Microchip (" .. frags2 .. "/1000)")
                                 continue
                             end
                         end
@@ -702,14 +705,9 @@ local function GetCyborgFirstTime()
                     SetText("GET CYBORG | Mua Microchip...")
                     RS.Remotes.CommF_:InvokeServer("BlackbeardReward", "Microchip", "2"); task.wait(1)
                 else
-                    SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2))
-                    game:GetService("StarterGui"):SetCore("SendNotification", {
-                        Title = "WARNING",
-                        Text = "KHÔNG ĐỦ FRAGMENT MUA CHIP (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2),
-                        Duration = 5,
-                        Icon = "rbxassetid://123456789",
-                        Callback = nil
-                    })
+                    -- Thiếu frags mua chip → đổi acc qua FARMSYNC
+                    SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2) .. " → Đổi acc...")
+                    FarmSyncChangeAcc("Không đủ fragment mua Microchip (" .. frags2 .. "/1000)")
                     task.wait(3)
                 end
             end
