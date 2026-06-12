@@ -192,15 +192,14 @@ FastAttack = loadstring([[
         end
         Register_Hit:FireServer(unpack(args))
     end
+    -- Luôn attack liên tục, không cần gate os.time()
     task.spawn(function()
-        while task.wait(.05) do
-            if _G.FastAttack == os.time() then
-                pcall(function() Funcs:Attack() end)
-            end
+        while task.wait(0.05) do
+            pcall(function() Funcs:Attack() end)
         end
     end)
     getgenv().Attack = function()
-        pcall(function() _G.FastAttack = os.time() end)
+        pcall(function() Funcs:Attack() end)
     end
 ]])
 if FastAttack then pcall(FastAttack) end
@@ -653,40 +652,39 @@ local function GetCyborgFirstTime()
                     RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
                 else
                     local orderFound = false
+                    local orderTarget = nil
                     for _, v in pairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                            orderFound = true
-                            SetText("GET CYBORG | Attack Order")
-                            EquipByTip("Melee")
-                            pcall(function()
-                                v.HumanoidRootPart.Anchored = true
-                                v.Humanoid.WalkSpeed = 0
-                                v.Humanoid.JumpPower = 0
-                            end)
-                            repeat
-                                task.wait(0.1)
-                                local vhrp = v:FindFirstChild("HumanoidRootPart")
-                                local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                                if vhrp and myHrp then
-                                    shouldTween = true
-                                    block.CFrame = myHrp.CFrame
-                                    local target = CFrame.new(vhrp.Position + Vector3.new(0, 3, 0))
-                                    local dist = (block.Position - target.Position).Magnitude
-                                    local tween = TS:Create(block, TweenInfo.new(math.max(dist/350, 0.1), Enum.EasingStyle.Linear), {CFrame = target})
-                                    tween:Play()
-                                    tween.Completed:Wait()
-                                end
-                                getgenv().Attack()
-                            until not workspace.Enemies:FindFirstChild("Order")
-                                or workspace.Enemies:FindFirstChild("Order").Humanoid.Health <= 0
-                            pcall(function() v.HumanoidRootPart.Anchored = false end)
-                            SetText("GET CYBORG | Order đã chết! Chờ xử lý...")
-                            task.wait(5)
-                            if getCurrentRace() == "Cyborg" then
-                                SetText("Have Cyborg!")
-                                break
-                            end
+                        if v.Name == "Order" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and v:FindFirstChild("HumanoidRootPart") then
+                            orderTarget = v
                             break
+                        end
+                    end
+                    if orderTarget then
+                        orderFound = true
+                        SetText("GET CYBORG | Attack Order")
+                        EquipByTip("Melee")
+                        -- Loop nhanh theo cc.lua: di chuyển liên tục + attack liên tục, không block
+                        repeat
+                            task.wait()
+                            local vhrp = orderTarget:FindFirstChild("HumanoidRootPart")
+                            if not vhrp then break end
+                            local hp = orderTarget:FindFirstChildWhichIsA("Humanoid")
+                            if not hp or hp.Health <= 0 then break end
+                            SetText("GET CYBORG | Kill Order HP: " .. math.floor(hp.Health / hp.MaxHealth * 100) .. "%")
+                            -- Di chuyển liên tục theo Order (non-blocking)
+                            KillMonster("Order")
+                            -- Gọi thêm Attack() trực tiếp
+                            if getgenv().Attack then getgenv().Attack() end
+                        until not orderTarget or not orderTarget.Parent
+                            or not orderTarget:FindFirstChildWhichIsA("Humanoid")
+                            or orderTarget:FindFirstChildWhichIsA("Humanoid").Health <= 0
+                            or not orderTarget:FindFirstChild("HumanoidRootPart")
+                            or (LP.Character and LP.Character:FindFirstChild("Humanoid") and LP.Character.Humanoid.Health <= 0)
+                        SetText("GET CYBORG | Order đã chết! Chờ xử lý...")
+                        StopTween()
+                        task.wait(5)
+                        if getCurrentRace() == "Cyborg" then
+                            SetText("Have Cyborg!")
                         end
                     end
                     if not orderFound then
