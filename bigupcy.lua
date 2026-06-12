@@ -446,7 +446,7 @@ local function MAX_CHESTS_FarmChestFast()
                         repeat
                             task.wait()
                             SetText("Collect Chests | " .. c .. "/" .. _chestAll .. "/" .. MAX_CHESTS_PER_SERVER .. " Chests")
-                            task.delay(2, function() if v and v.Parent then v.CanTouch = false end end)
+                            task.delay(0.5, function() if v and v.Parent then v.CanTouch = false end end)
                             if LP.Character and LP.Character:FindFirstChildOfClass("Humanoid") and LP.Character:FindFirstChildOfClass("Humanoid").Health > 0 then
                                 LP.Character:SetPrimaryPartCFrame(v.CFrame)
                             end
