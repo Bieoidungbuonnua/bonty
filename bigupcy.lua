@@ -111,6 +111,10 @@ until Character
 pcall(function() LP.PlayerGui:FindFirstChild("Blank"):Destroy() end)
 local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
 
+local function SetText(newText)
+    print(newText)
+end
+
 local shouldTween = false
 local block = Instance.new("Part", workspace)
 block.Name = "TweenBlock"
