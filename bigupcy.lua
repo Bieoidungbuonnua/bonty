@@ -101,12 +101,12 @@ end)
 
 getgenv().StopV3 = false
 
-local Character = LP.Character
 repeat task.wait(2)
-until Character
-    and Character:FindFirstChild("HumanoidRootPart")
-    and Character:FindFirstChildWhichIsA("Humanoid")
-    and Character:IsDescendantOf(workspace.Characters)
+until LP.Character
+    and LP.Character:FindFirstChild("HumanoidRootPart")
+    and LP.Character:FindFirstChildWhichIsA("Humanoid")
+    and workspace:FindFirstChild("Characters")
+    and LP.Character:IsDescendantOf(workspace.Characters)
 
 pcall(function() LP.PlayerGui:FindFirstChild("Blank"):Destroy() end)
 local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
@@ -146,7 +146,10 @@ task.spawn(function()
     end
 end)
 
-loadstring(game:HttpGet("https://raw.githubusercontent.com/Bieoidungbuonnua/bonty/refs/heads/main/m1-attack.txt"))()
+pcall(function()
+    local ok, src = pcall(game.HttpGet, game, "https://raw.githubusercontent.com/Bieoidungbuonnua/bonty/refs/heads/main/m1-attack.txt")
+    if ok and src then pcall(loadstring(src)) end
+end)
 
 ReplicatedStorage = RS
 FastAttack = loadstring([[
@@ -200,7 +203,7 @@ FastAttack = loadstring([[
         pcall(function() _G.FastAttack = os.time() end)
     end
 ]])
-if FastAttack then FastAttack() end
+if FastAttack then pcall(FastAttack) end
 
 local function invoke(...)
     local args = {...}
