@@ -35,6 +35,29 @@ local function FarmSyncChangeAcc(reason)
         task.wait(10)
     end
 end
+
+-- ================================================
+-- WAIT FOR GAME LOAD
+-- ================================================
+repeat task.wait(0.5)
+until game:IsLoaded()
+    and game.Players.LocalPlayer
+    and game.Players.LocalPlayer:FindFirstChildWhichIsA("PlayerGui")
+
+local _COREGUI = game:GetService("CoreGui")
+if workspace.DistributedGameTime <= 10 then
+    local wfgtl = _COREGUI:FindFirstChild("WFGTL") or Instance.new("Hint", _COREGUI)
+    wfgtl.Name = "WFGTL"
+    wfgtl.Text = "Just a moment... Waiting while the game loads - This won't take long!"
+    task.wait(math.max(0, 10 - workspace.DistributedGameTime))
+    pcall(function() wfgtl:Destroy() end)
+end
+
+do
+    local _rs = game:GetService("ReplicatedStorage")
+    local _rem = _rs:WaitForChild("Remotes", 30)
+    if _rem then _rem:WaitForChild("CommF_", 30) end
+end
 -- ================================================
 
 local RS_ = game:GetService("ReplicatedStorage")
