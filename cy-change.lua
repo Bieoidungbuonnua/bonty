@@ -546,6 +546,32 @@ local function GetCyborgFirstTime()
             return hookedNotif(...)
         end))
     end)
+    local FARMSYN_FOLDERS = {
+        idle = "b8ff2a869e7688680d78b4a52245ef4af881b1e5f6c2501aa10f09d4eaaa96e5",
+        done = "6902232f9e8eb629a987b2d5c8e863a120214f0eddfa18ba41ce814ae6f0ee57",
+        key  = "08f6c4d56ae89e235b379cb959246b5f24dec430bcc1a6bd1ba24d86593d8a6d"
+    }
+    local function DoChangeAcc(reason)
+        warn("[CYBORG] " .. reason .. " → Đổi acc...")
+        SetText(reason .. " | Đổi acc...")
+        StarterGui:SetCore("SendNotification", {Title="CHANGE ACC", Text=reason, Duration=5})
+        local success = pcall(function()
+            getgenv().client:ChangeToFolder(
+                FARMSYN_FOLDERS.idle,
+                FARMSYN_FOLDERS.done,
+                true,
+                FARMSYN_FOLDERS.key
+            )
+        end)
+        if success then
+            pcall(function() getgenv().client:Disconnect() end)
+            task.wait(5)
+            game:Shutdown()
+        else
+            warn("[CYBORG] ChangeToFolder thất bại, thử lại sau 10s...")
+            task.wait(10)
+        end
+    end
     while not getgenv().StopV3 do
         task.wait(1)
         if getCurrentRace() == "Cyborg" then SetText("Have Cyborg!") break end
@@ -560,6 +586,7 @@ local function GetCyborgFirstTime()
         if frags < 2500 and state ~= "NaN" then
             SetText("GET CYBORG | Không Đủ Fragment (" .. frags .. "/2500) | Cần thêm " .. (2500 - frags))
             StarterGui:SetCore("SendNotification", {Title="WARNING", Text="KHÔNG ĐỦ FRAGMENT (" .. frags .. "/2500)", Duration=5})
+            DoChangeAcc("Không Đủ Fragment Cyborg (" .. frags .. "/2500)")
         end
         if state == "NaN" then
             if not CheckSea(2) then
@@ -640,7 +667,7 @@ local function GetCyborgFirstTime()
                             else
                                 SetText("GET CYBORG | Không Đủ Fragment Chip (" .. frags2 .. "/1000)")
                                 StarterGui:SetCore("SendNotification", {Title="WARNING", Text="KHÔNG ĐỦ FRAGMENT CHIP (" .. frags2 .. "/1000)", Duration=5})
-                                task.wait(3)
+                                DoChangeAcc("Không Đủ Fragment Chip (" .. frags2 .. "/1000)")
                                 continue
                             end
                         end
@@ -656,7 +683,7 @@ local function GetCyborgFirstTime()
                 else
                     SetText("GET CYBORG | Không Đủ Fragment Chip (" .. frags2 .. "/1000)")
                     StarterGui:SetCore("SendNotification", {Title="WARNING", Text="KHÔNG ĐỦ FRAGMENT CHIP (" .. frags2 .. "/1000)", Duration=5})
-                    task.wait(3)
+                    DoChangeAcc("Không Đủ Fragment Chip (" .. frags2 .. "/1000)")
                 end
             end
         end
