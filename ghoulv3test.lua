@@ -1632,8 +1632,9 @@ end
 getgenv().KilledV3Count = getgenv().KilledV3Count or 0
 
 local function GetGhoulV3QuestState()
+    -- NPC: Wenlocktoad (xác nhận từ debug in-game)
     local ok, state = pcall(function()
-        return RS.Remotes.CommF_:InvokeServer("GhoulV3Trainer", "1")
+        return RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "1")
     end)
     return ok and state or nil
 end
@@ -1737,9 +1738,9 @@ local function GetV3()
             task.wait(2)
 
         elseif state == 0 then
-            SetText("[Ghoul V3] Nhận quest từ NPC (Arowe)...")
+            SetText("[Ghoul V3] Nhận quest từ NPC (Wenlocktoad)...")
             pcall(function()
-                RS.Remotes.CommF_:InvokeServer("Arowe", "2")
+                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "2")
             end)
             -- Reset hoàn toàn khi nhận quest mới (server cũng reset count)
             getgenv().KilledV3Count = 0
@@ -1826,10 +1827,10 @@ local function GetV3()
                 end
             end
         elseif state == 2 then
-            -- Đã kill đủ → Nộp quest
-            SetText("[Ghoul V3] Nộp quest (Arowe)...")
+            -- Đủ kill → Nộp quest (Wenlocktoad)
+            SetText("[Ghoul V3] Nộp quest (Wenlocktoad)...")
             pcall(function()
-                RS.Remotes.CommF_:InvokeServer("Arowe", "3")
+                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
             end)
             task.wait(2)
         elseif state == -2 then
