@@ -1750,9 +1750,9 @@ local function GetV3()
     BindDeathWatcher()
     -- ───────────────────────────────────────────────
 
-    -- Theo dõi thời gian không tìm được target → HopServer sau 2 phút
+    -- Theo dõi thời gian không tìm được target → HopServer sau 5 phút
     local noTargetSince    = nil   -- tick() khi bắt đầu không có target
-    local NO_TARGET_HOP    = 120   -- 2 phút (giây)
+    local NO_TARGET_HOP    = 300   -- 5 phút (giây)
     -- Suspicious kill: nếu total kills >> KILLS_TARGET mà state vẫn 1 → hop
     local totalAttemptsKill = 0
     local SUSPICIOUS_LIMIT  = KILLS_TARGET + 3  -- 10 kills thất bại → hop
@@ -2015,13 +2015,37 @@ getgenv().V2Farms = {
             _G.FarmV2 = true
             GetV2()
 
+            -- Sau khi V2 xong: kiểm tra config StopV3
+            if getgenv().StopV3 == true then
+                -- Dừng ở V2, hiện noti Done Ghoul V2
+                SetText("✅ Done Ghoul V2!")
+                getgenv().StopV2 = true
+                return
+            end
+            -- StopV3 = false → bỏ qua "Done V2", tiếp tục lên V3
+
         elseif lv == 2 then
+            if getgenv().StopV3 == true then
+                -- Config yêu cầu dừng ở V2
+                SetText("✅ Done Ghoul V2!")
+                getgenv().StopV2 = true
+                return
+            end
             -- ── Lv 2 → Up V3 (Kill 5 Players)
             SetText("Ghoul | V3 — Kill 5 Players")
             GetV3()
 
         elseif lv == 3 then
-            SetText("Ghoul V3 DONE!")
+            -- V3 hoàn thành
+            SetText("✅ Done Ghoul V3!")
+            -- Hiện Noti nổi bật
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title   = "Ghoul V3 ✅",
+                    Text    = "Done Ghoul V3! Race đã được upgrade lên V3!",
+                    Duration = 10
+                })
+            end)
             getgenv().StopV2 = true
         end
     end
