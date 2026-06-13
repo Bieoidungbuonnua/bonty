@@ -439,7 +439,7 @@ task.spawn(function()
             for _, v in ipairs(x and x:GetChildren() or {}) do
                 local hrp = v:FindFirstChild("HumanoidRootPart")
                 local hum = v:FindFirstChild("Humanoid")
-                if v ~= char and hrp and hum and hum.Health > 0 and (hrp.Position - root.Position).Magnitude <= 60 then
+                if v ~= char and hrp and hum and hum.Health > 0 and root and (hrp.Position - root.Position).Magnitude <= 60 then
                     for _, _v in ipairs(v:GetChildren()) do
                         if _v:IsA("BasePart") and (hrp.Position - root.Position).Magnitude <= 60 then
                             parts[#parts + 1] = {v, _v}
@@ -1739,7 +1739,7 @@ local function GetV3()
         elseif state == 0 then
             SetText("[Ghoul V3] Nhận quest từ NPC (Arowe)...")
             pcall(function()
-                RS.Remotes.CommF_:InvokeServer("GhoulV3Trainer", "2")
+                RS.Remotes.CommF_:InvokeServer("Arowe", "2")
             end)
             -- Reset hoàn toàn khi nhận quest mới (server cũng reset count)
             getgenv().KilledV3Count = 0
@@ -1827,9 +1827,9 @@ local function GetV3()
             end
         elseif state == 2 then
             -- Đã kill đủ → Nộp quest
-            SetText("[Ghoul V3] Nộp quest...")
+            SetText("[Ghoul V3] Nộp quest (Arowe)...")
             pcall(function()
-                RS.Remotes.CommF_:InvokeServer("GhoulV3Trainer", "3")
+                RS.Remotes.CommF_:InvokeServer("Arowe", "3")
             end)
             task.wait(2)
         elseif state == -2 then
