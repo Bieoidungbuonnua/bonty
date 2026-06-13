@@ -1906,6 +1906,29 @@ getgenv().V2Farms = {
 
 PrintV2Status()
 
+-- ── Mua Ghoul race ngay khi load script ──────────────────
+do
+    local currentRace = getCurrentRace()
+    if currentRace ~= "Ghoul" then
+        SetText("[Init] Đang mua Ghoul race...")
+        local ecto = GetEctoCount()
+        if ecto >= 100 then
+            invoke("Ectoplasm", "BuyCheck", 4)
+            task.wait(1)
+            invoke("Ectoplasm", "Change", 4)
+            task.wait(2)
+        end
+        if getCurrentRace() == "Ghoul" then
+            SetText("[Init] Đã có Ghoul race!")
+        else
+            SetText("[Init] Chưa đủ Ecto, sẽ farm Ghoul sau...")
+        end
+    else
+        SetText("[Init] Đã là Ghoul race!")
+    end
+end
+-- ────────────────────────────────────────────────────────
+
 SetText(type(getgenv().RaceList) == "table" and table.concat(getgenv().RaceList, ", ") or "RaceList not set")
 local world = worldMap[placeIdd]
     if world == "World1" or world == "World3" then
@@ -1918,26 +1941,26 @@ task.wait(.5)
 for index, targetRace in getgenv().RaceList do
     if getgenv().StopV2 then SetText(" Stop ") break end
 
-    if HasRaceV2(targetRace) then
-        SetText("Done Ghoul V2")
-    end
-
-
     local farmFunc = getgenv().V2Farms[targetRace]
     if farmFunc then
         local farmThread = task.spawn(function()
+            -- Loop chạy farmFunc liên tục cho đến khi StopV2 hoặc lv == 3
             while not getgenv().StopV2 do
-                if HasRaceV2(targetRace) then break end
+                -- KHÔNG break khi HasRaceV2 = true!
+                -- V3 vẫn cần chạy sau khi V2 done
+                -- Chỉ dừng khi lv == 3 (StopV2 set bên trong farmFunc)
                 local cur = getCurrentRace()
                 if cur ~= targetRace and targetRace ~= "Ghoul" then
                     SetText(" Race đổi → " .. targetRace)
                     switchToRace(targetRace)
                 end
-                pcall(farmFunc)
+                local ok, err = pcall(farmFunc)
+                if not ok then
+                    warn("[farmFunc error] " .. tostring(err))
+                end
                 task.wait(1)
             end
         end)
-
     end
     task.wait(.5)
 end
