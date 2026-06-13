@@ -1750,16 +1750,25 @@ local function GetV3()
     BindDeathWatcher()
     -- ───────────────────────────────────────────────
 
+    -- Theo dõi thời gian không tìm được target → HopServer sau 2 phút
+    local noTargetSince    = nil   -- tick() khi bắt đầu không có target
+    local NO_TARGET_HOP    = 120   -- 2 phút (giây)
+    -- Suspicious kill: nếu total kills >> KILLS_TARGET mà state vẫn 1 → hop
+    local totalAttemptsKill = 0
+    local SUSPICIOUS_LIMIT  = KILLS_TARGET + 3  -- 10 kills thất bại → hop
+
     while not getgenv().StopV3 do
         task.wait(0.5)
 
-        -- Xử lý death: chờ respawn, reset state, bắt đầu lại
+        -- Xử lý death
         if myDeathDetected then
             myDeathDetected = false
             getgenv().KilledV3Count = 0
-            preferredTarget = nil
-            sessionBlacklist = {}
-            noTargetRetries = 0
+            totalAttemptsKill = 0
+            preferredTarget   = nil
+            sessionBlacklist  = {}
+            noTargetRetries   = 0
+            noTargetSince     = nil
             SetText("[Ghoul V3] Chờ respawn...")
             repeat task.wait(0.5)
             until LP.Character
@@ -1774,7 +1783,7 @@ local function GetV3()
 
         local state = GetGhoulV3QuestState()
 
-        -- ── STATE 0: Chưa có quest (hoặc join server mới → quest reset) ──
+        -- ── STATE 0: Chưa có quest ──────────────────────────────────
         if state == nil then
             SetText("[Ghoul V3] Không kết nối được NPC, thử lại...")
             task.wait(2)
@@ -1784,106 +1793,177 @@ local function GetV3()
             pcall(function()
                 RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "2")
             end)
-            -- Reset hoàn toàn khi nhận quest mới (server cũng reset count)
             getgenv().KilledV3Count = 0
-            preferredTarget = nil
-            sessionBlacklist = {}
+            totalAttemptsKill = 0
+            preferredTarget   = nil
+            sessionBlacklist  = {}
+            noTargetSince     = nil
             task.wait(1.5)
 
-        -- ── STATE 1: Quest đang chạy → tìm và kill player ──
+        -- ── STATE 1: Quest đang chạy → Kill player ─────────────────
         elseif state == 1 then
-            -- Bật PvP (Friendly PvP được phép theo wiki)
             pcall(function() RS.Remotes.CommF_:InvokeServer("EnablePvp") end)
 
-            -- Ưu tiên target cũ (wiki: cùng 1 người có thể kill nhiều lần)
+            -- Suspicious kill guard: nếu kill quá nhiều mà quest vẫn chưa xong
+            if totalAttemptsKill >= SUSPICIOUS_LIMIT then
+                SetText(string.format(
+                    "[Ghoul V3] ⚠️ %d kills nhưng quest vẫn state=1 → Suspicious kills → HopServer!",
+                    totalAttemptsKill))
+                task.wait(1)
+                HopServer()
+                task.wait(5)
+                totalAttemptsKill = 0
+                continue
+            end
+
+            -- Tìm target (KHÔNG ưu tiên target cũ sau khi kill xong)
+            -- preferredTarget chỉ giữ khi đang attack, sau kill sẽ bị nil
             local target = nil
-            if preferredTarget
-               and preferredTarget.Parent
+            if preferredTarget and preferredTarget.Parent
                and IsValidTarget(preferredTarget) then
-                target = preferredTarget  -- Tiếp tục farm cùng người
+                target = preferredTarget
             else
                 preferredTarget = nil
                 target = FindValidV3Target(sessionBlacklist)
-                if target then
-                    preferredTarget = target
-                end
+                if target then preferredTarget = target end
             end
 
+            -- ── Không có target ──────────────────────────────────────
             if not target then
-                noTargetRetries = noTargetRetries + 1
+                if not noTargetSince then
+                    noTargetSince = tick()
+                end
+                local elapsed = tick() - noTargetSince
                 SetText(string.format(
-                    "[Ghoul V3] Không có target hợp lệ (%d lần) → Đợi...",
-                    noTargetRetries
-                ))
-                -- Sau 5 lần không tìm được → clear blacklist và thử lại
+                    "[Ghoul V3] Không có target (%.0fs/120s) | Kill: %d/%d",
+                    elapsed, getgenv().KilledV3Count, KILLS_TARGET))
+
+                -- 2 phút không tìm được ai → HopServer
+                if elapsed >= NO_TARGET_HOP then
+                    SetText("[Ghoul V3] ⏰ 2 phút không có target → HopServer!")
+                    task.wait(1)
+                    HopServer()
+                    noTargetSince = nil
+                    task.wait(5)
+                    continue
+                end
+
+                -- Clear blacklist sau 5 lần retry (có thể target vào safezone tạm)
+                noTargetRetries = noTargetRetries + 1
                 if noTargetRetries >= 5 then
                     sessionBlacklist = {}
-                    noTargetRetries = 0
+                    noTargetRetries  = 0
                     SetText("[Ghoul V3] Clear blacklist, scan lại...")
                 end
                 task.wait(3)
+
+            -- ── Có target → Attack ───────────────────────────────────
             else
+                noTargetSince   = nil   -- Reset timer vì đã có target
                 noTargetRetries = 0
 
-                -- Lấy HP% để hiển thị
                 local hpPct = 0
                 pcall(function()
                     local hum = target.Character:FindFirstChildOfClass("Humanoid")
                     hpPct = math.floor(hum.Health / hum.MaxHealth * 100)
                 end)
-
-                SetText(string.format(
-                    "[Ghoul V3] Kill %d/%d | %s | HP: %d%%",
-                    getgenv().KilledV3Count, KILLS_TARGET, target.Name, hpPct
-                ))
+                SetText(string.format("[Ghoul V3] Kill %d/%d | %s | HP:%d%%",
+                    getgenv().KilledV3Count, KILLS_TARGET, target.Name, hpPct))
 
                 local killed = AttackPlayer(target, "[Ghoul V3]")
 
-                -- Kiểm tra ngay nếu mình đã chết trong lúc attack
-                if myDeathDetected then
-                    continue  -- Xử lý ở đầu vòng lặp
-                end
+                if myDeathDetected then continue end
 
                 if killed then
+                    totalAttemptsKill       = totalAttemptsKill + 1
                     getgenv().KilledV3Count = getgenv().KilledV3Count + 1
-                    SetText(string.format(
-                        "[Ghoul V3] ✅ Kill %d/%d! (%s)",
-                        getgenv().KilledV3Count, KILLS_TARGET, target.Name
-                    ))
-                    -- GIỮ NGUYÊN preferredTarget để kill tiếp cùng người
-                    -- (wiki: 1 người có thể bị kill nhiều lần)
-                    task.wait(2.5) -- chờ server ghi nhận kill
+                    SetText(string.format("[Ghoul V3] ✅ Kill %d/%d! (%s)",
+                        getgenv().KilledV3Count, KILLS_TARGET, target.Name))
 
-                    -- Check sớm: nếu server báo state == 2 thì nộp luôn
-                    local earlyCheck = GetGhoulV3QuestState()
-                    if earlyCheck == 2 then
-                        SetText("[Ghoul V3] Server xác nhận đủ kill → Nộp!")
+                    -- ── Sau kill: KHÔNG đứng im → tìm target mới ngay ──
+                    -- wiki: cùng người có thể kill lại, nhưng ta move để safe
+                    preferredTarget  = nil   -- reset để tìm target mới
+                    sessionBlacklist = {}    -- clear blacklist để có nhiều lựa chọn
+                    task.wait(1)             -- 1s để tránh bị kill ngược khi đứng im
+
+                    -- Check sớm suspicious: state có cập nhật không?
+                    local newState = GetGhoulV3QuestState()
+                    if newState == 2 then
+                        SetText("[Ghoul V3] ✅ Server xác nhận đủ kill → Nộp!")
+                        -- Sẽ xử lý ở vòng lặp tiếp theo (state == 2)
+                    elseif newState == 1 then
+                        -- Kiểm tra: nếu đã kill đủ mà server vẫn state=1
+                        -- → có thể kills bị suspicious hoặc server chưa update
+                        if getgenv().KilledV3Count >= KILLS_TARGET then
+                            -- Thử nộp trước (Wenlocktoad | 3)
+                            SetText("[Ghoul V3] Kill đủ, thử nộp ngay...")
+                            local submitOk = false
+                            pcall(function()
+                                local r = RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
+                                -- Nếu server trả về done → OK
+                                submitOk = (r == true or r == -2 or r == 2)
+                            end)
+                            task.wait(1)
+                            -- Nếu không nộp được và không còn player nào → hop
+                            local anyTarget = FindValidV3Target({})
+                            if not anyTarget then
+                                local finalState = GetGhoulV3QuestState()
+                                if finalState == 1 then
+                                    SetText("[Ghoul V3] ⚠️ Không còn player & quest stuck → HopServer!")
+                                    task.wait(1)
+                                    HopServer()
+                                    task.wait(5)
+                                end
+                            end
+                        end
                     end
                 else
-                    -- Target không kill được (safezone, PvP off, out of reach...)
-                    -- → blacklist và tìm người khác
+                    -- Attack fail → blacklist target này, tìm người khác
                     sessionBlacklist[target.Name] = true
                     preferredTarget = nil
-                    SetText("[Ghoul V3] Cannot kill " .. target.Name .. " → skip, tìm người khác...")
+                    SetText("[Ghoul V3] Skip " .. target.Name .. " → tìm target khác...")
                     task.wait(1)
                 end
             end
+
+        -- ── STATE 2: Đủ kill → Nộp quest ───────────────────────────
         elseif state == 2 then
-            -- Đủ kill → Nộp quest (Wenlocktoad)
             SetText("[Ghoul V3] Nộp quest (Wenlocktoad)...")
             pcall(function()
                 RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
             end)
             task.wait(2)
+
+            -- Verify: nếu nộp xong mà state vẫn 1 (nộp thất bại)
+            local checkState = GetGhoulV3QuestState()
+            if checkState == 1 then
+                -- Nộp thất bại → check còn player không
+                local anyTarget = FindValidV3Target({})
+                if not anyTarget then
+                    SetText("[Ghoul V3] ⚠️ Nộp quest thất bại & không có player → HopServer!")
+                    task.wait(1)
+                    HopServer()
+                    task.wait(5)
+                end
+            end
+
+        -- ── STATE -2: Quest hoàn thành ──────────────────────────────
         elseif state == -2 then
-            -- Quest hoàn thành
-            SetText("[Ghoul V3] DONE! Đã up Ghoul V3!")
+            SetText("[Ghoul V3] ✅ DONE! Ghoul V3 đã unlock!")
             getgenv().KilledV3Count = 0
+            if myDeathConn then
+                pcall(function() myDeathConn:Disconnect() end)
+            end
             break
+
         else
-            -- State không xác định, thử refresh
-            SetText("[Ghoul V3] State lạ: " .. tostring(state) .. " → thử lại")
-            task.wait(2)
+            if type(state) == "number" and state > 0 then
+                getgenv().KilledV3Count = state
+                SetText(string.format("[Ghoul V3] Server count: %d/%d", state, KILLS_TARGET))
+            else
+                SetText("[Ghoul V3] State lạ: " .. tostring(state))
+                task.wait(2)
+            end
         end
     end
 end
