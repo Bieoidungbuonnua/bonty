@@ -1279,9 +1279,9 @@ local function PredictTeleportTo(targetPlayer)
 end
 
 -- ─────────────────────────────────────────────────
--- ATTACK PLAYER — Tween theo player (speed 300)
--- Ngắt quãng: attack trúng → nghỉ → attack tiếp
--- Skill spam delay 0.5s giữa mỗi skill
+-- ATTACK PLAYER — 2 loop riêng (giống auto-bounty-m1):
+--   followTask : tween theo target LIÊN TỤC (không dừng khi skill)
+--   attack loop: M1 + skill delay 0.5s chạy độc lập
 -- ─────────────────────────────────────────────────
 local _lastV3KenCall = tick()
 
@@ -1300,84 +1300,104 @@ local function AttackPlayer(targetPlayer, reason)
     end
 
     local targetChar = targetPlayer.Character
-    local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-    local targetHum = targetChar:FindFirstChild("Humanoid")
+    local targetHRP  = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    local targetHum  = targetChar and targetChar:FindFirstChild("Humanoid")
     if not targetHRP or not targetHum or targetHum.Health <= 0 then return false end
 
-    local lastHealth = targetHum.Health
+    local lastHealth    = targetHum.Health
     local lastDamageTime = tick()
-    local hitCount = 0
-    local currentTween = nil  -- track tween hiện tại để cancel khi cần
+    local hitCount      = 0
+    local followRunning = true   -- flag dừng followTask khi exit
+    local killed        = false
 
-    -- Bật hệ thống tween block: HRP sẽ follow block liên tục
+    -- Bật block+shouldTween: HRP luôn follow block
     shouldTween = true
-    -- Đặt block vào vị trí hiện tại của mình làm điểm bắt đầu
     if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
         block.CFrame = LP.Character.HumanoidRootPart.CFrame
     end
 
+    -- ── FOLLOW TASK (giống auto-bounty-m1 followThread) ──────────
+    -- Chạy riêng, liên tục tween block đến sát target mỗi 0.1s
+    -- KHÔNG dừng dù attack loop đang wait skill hay M1
+    local followTask = task.spawn(function()
+        local lastTween = nil
+        while followRunning do
+            task.wait(0.1)
+            pcall(function()
+                local tc = targetPlayer.Character
+                if not tc then return end
+                local thrp = tc:FindFirstChild("HumanoidRootPart")
+                if not thrp then return end
+
+                -- Offset nhỏ phía sau target để đứng trong tầm đánh
+                local targetPos = thrp.CFrame * CFrame.new(0, 2, 5)
+                local blockDist = (block.Position - targetPos.Position).Magnitude
+
+                if blockDist > 1.5 then
+                    -- Cancel tween cũ → bắt đầu tween mới hướng target
+                    if lastTween then
+                        lastTween:Cancel()
+                    end
+                    local tweenTime = math.max(blockDist / 300, 0.05)
+                    lastTween = TS:Create(
+                        block,
+                        TweenInfo.new(tweenTime, Enum.EasingStyle.Linear),
+                        {CFrame = targetPos}
+                    )
+                    lastTween:Play()
+                end
+            end)
+        end
+    end)
+    -- ─────────────────────────────────────────────────────────────
+
+    -- ── ATTACK LOOP (độc lập với followTask) ─────────────────────
     repeat
-        task.wait(0.15)
+        task.wait(0.1)
         if getgenv().StopV2 or getgenv().StopV3 then break end
 
-        -- Lấy lại ref
+        -- Refresh refs
         targetChar = targetPlayer.Character
         if not targetChar then break end
         targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         targetHum = targetChar:FindFirstChild("Humanoid")
-        if not targetHRP or not targetHum or targetHum.Health <= 0 then break end
+        if not targetHRP or not targetHum or targetHum.Health <= 0 then
+            killed = true
+            break
+        end
 
-        -- Safe checks
+        -- Safe checks → dừng followTask và exit
         if IsInSafeZone(targetPlayer) then
             SetText("Skip " .. targetPlayer.Name .. " (SafeZone)")
-            task.wait(0.5)
+            followRunning = false
             shouldTween = false
-            if currentTween then pcall(function() currentTween:Cancel() end) end
+            task.wait(0.5)
             return false
         end
         if IsPvPDisabledAttr(targetPlayer) then
             SetText("Skip " .. targetPlayer.Name .. " (PvP off)")
-            task.wait(0.5)
+            followRunning = false
             shouldTween = false
-            if currentTween then pcall(function() currentTween:Cancel() end) end
+            task.wait(0.5)
             return false
         end
         if targetPlayer:GetAttribute("IslandRaiding") then
             SetText("Skip " .. targetPlayer.Name .. " (Raiding)")
-            task.wait(1)
+            followRunning = false
             shouldTween = false
-            if currentTween then pcall(function() currentTween:Cancel() end) end
+            task.wait(1)
             return false
         end
 
         local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then break end
 
-        local dist = (myHRP.Position - targetHRP.Position).Magnitude
-        local hpPct = math.floor(targetHum.Health / targetHum.MaxHealth * 100)
+        local dist   = (myHRP.Position - targetHRP.Position).Magnitude
+        local hpPct  = math.floor(targetHum.Health / targetHum.MaxHealth * 100)
         SetText(string.format("%s | %s | HP:%d%% | dist:%.0f",
             reason or "V3", targetPlayer.Name, hpPct, dist))
 
-        -- ── TWEEN THEO PLAYER (speed 300, không TP ngay) ──
-        -- Mỗi vòng: tween block đến sát target (offset 5 studs phía sau)
-        -- HRP follow block → di chuyển mượt không instant
-        local targetPos = targetHRP.CFrame * CFrame.new(0, 2, 5)
-        local blockDist = (block.Position - targetPos.Position).Magnitude
-        if blockDist > 1.5 then
-            -- Cancel tween cũ nếu còn chạy
-            if currentTween then
-                pcall(function() currentTween:Cancel() end)
-            end
-            local tweenTime = math.max(blockDist / 300, 0.05)
-            currentTween = TS:Create(
-                block,
-                TweenInfo.new(tweenTime, Enum.EasingStyle.Linear),
-                {CFrame = targetPos}
-            )
-            currentTween:Play()
-        end
-
-        -- ── ATTACK khi đủ gần (đảm bảo trúng) ──
+        -- Attack khi đủ gần (followTask đang tween đến → dist sẽ giảm dần)
         if dist <= 45 then
             EquipByTip("Melee")
 
@@ -1389,46 +1409,48 @@ local function AttackPlayer(targetPlayer, reason)
 
             hitCount = hitCount + 1
 
-            -- M1 melee hit (ngắt quãng — không liên tục)
+            -- M1 melee — ngắt quãng: 1 hit rồi dừng ngắn
             pcall(function()
                 game:GetService("VirtualUser"):ClickButton1(Vector2.new())
             end)
-            task.wait(0.12)
+            task.wait(0.1)  -- dừng ngắn sau M1, followTask vẫn tiếp tục chase
 
-            -- Spam skill Z → X → C với delay 0.5s giữa mỗi skill
-            -- UseSkill có sẵn wait(0.35) bên trong → thêm 0.15 = tổng 0.5s
+            -- Spam skill Z → X → C, delay 0.5s mỗi skill
+            -- (followTask chạy ở background nên không đứng im)
             UseSkill("Z")
-            task.wait(0.15)   -- 0.35 (trong UseSkill) + 0.15 = 0.5s tổng
+            task.wait(0.15)  -- UseSkill wait 0.35 nội bộ + 0.15 = 0.5s tổng
             UseSkill("X")
             task.wait(0.15)
             UseSkill("C")
             task.wait(0.15)
 
-            -- Ngắt quãng rõ ràng mỗi 3 hit: nghỉ thêm trước khi hit tiếp
+            -- Ngắt quãng mỗi 3 hit (không đánh liên tục)
             if hitCount % 3 == 0 then
-                task.wait(0.4)
+                task.wait(0.35)
             end
         end
-        -- Nếu chưa đủ gần: tween đang chạy, chờ tween đến gần hơn
+        -- Nếu dist > 45: followTask đang chase → chờ tween đến gần
 
-        -- Theo dõi damage
+        -- Theo dõi damage timeout
         if targetHum.Health < lastHealth then
-            lastHealth = targetHum.Health
+            lastHealth    = targetHum.Health
             lastDamageTime = tick()
         elseif tick() - lastDamageTime > 12 then
             SetText("No damage 12s → skip " .. targetPlayer.Name)
+            followRunning = false
+            shouldTween   = false
             task.wait(0.5)
-            shouldTween = false
-            if currentTween then pcall(function() currentTween:Cancel() end) end
             return false
         end
 
     until not targetHum or targetHum.Health <= 0
+    -- ─────────────────────────────────────────────────────────────
 
-    shouldTween = false
-    if currentTween then pcall(function() currentTween:Cancel() end) end
+    -- Dừng followTask
+    followRunning = false
+    shouldTween   = false
     SetText("Kill done: " .. (targetPlayer and targetPlayer.Name or "?"))
-    return true
+    return killed or (targetHum ~= nil and targetHum.Health <= 0)
 end
 
 
