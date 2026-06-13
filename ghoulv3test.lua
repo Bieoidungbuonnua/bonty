@@ -1277,12 +1277,6 @@ local function PredictTeleportTo(targetPlayer)
         end
     end)
 end
-
--- ─────────────────────────────────────────────────
--- ATTACK PLAYER — 2 loop riêng (giống auto-bounty-m1):
---   followTask : tween theo target LIÊN TỤC (không dừng khi skill)
---   attack loop: M1 + skill delay 0.5s chạy độc lập
--- ─────────────────────────────────────────────────
 local _lastV3KenCall = tick()
 
 local function AttackPlayer(targetPlayer, reason)
@@ -1304,21 +1298,19 @@ local function AttackPlayer(targetPlayer, reason)
     local targetHum  = targetChar and targetChar:FindFirstChild("Humanoid")
     if not targetHRP or not targetHum or targetHum.Health <= 0 then return false end
 
-    local lastHealth    = targetHum.Health
+    local lastHealth     = targetHum.Health
     local lastDamageTime = tick()
-    local hitCount      = 0
-    local followRunning = true   -- flag dừng followTask khi exit
-    local killed        = false
+    local lastM1Time     = 0   -- thời điểm click M1 gần nhất
+    local followRunning  = true
+    local killed         = false
 
-    -- Bật block+shouldTween: HRP luôn follow block
+    -- Bật block+shouldTween
     shouldTween = true
     if LP.Character and LP.Character:FindFirstChild("HumanoidRootPart") then
         block.CFrame = LP.Character.HumanoidRootPart.CFrame
     end
 
-    -- ── FOLLOW TASK (giống auto-bounty-m1 followThread) ──────────
-    -- Chạy riêng, liên tục tween block đến sát target mỗi 0.1s
-    -- KHÔNG dừng dù attack loop đang wait skill hay M1
+    -- ── FOLLOW TASK: tween theo target liên tục mỗi 0.1s ────────────
     local followTask = task.spawn(function()
         local lastTween = nil
         while followRunning do
@@ -1328,76 +1320,59 @@ local function AttackPlayer(targetPlayer, reason)
                 if not tc then return end
                 local thrp = tc:FindFirstChild("HumanoidRootPart")
                 if not thrp then return end
-
-                -- Offset nhỏ phía sau target để đứng trong tầm đánh
                 local targetPos = thrp.CFrame * CFrame.new(0, 2, 5)
                 local blockDist = (block.Position - targetPos.Position).Magnitude
-
                 if blockDist > 1.5 then
-                    -- Cancel tween cũ → bắt đầu tween mới hướng target
-                    if lastTween then
-                        lastTween:Cancel()
-                    end
+                    if lastTween then lastTween:Cancel() end
                     local tweenTime = math.max(blockDist / 300, 0.05)
-                    lastTween = TS:Create(
-                        block,
+                    lastTween = TS:Create(block,
                         TweenInfo.new(tweenTime, Enum.EasingStyle.Linear),
-                        {CFrame = targetPos}
-                    )
+                        {CFrame = targetPos})
                     lastTween:Play()
                 end
             end)
         end
     end)
-    -- ─────────────────────────────────────────────────────────────
+    -- ──────────────────────────────────────────────────────────────
 
-    -- ── ATTACK LOOP (độc lập với followTask) ─────────────────────
+    -- ── ATTACK LOOP ────────────────────────────────────────────────
     repeat
         task.wait(0.1)
         if getgenv().StopV2 or getgenv().StopV3 then break end
 
-        -- Refresh refs
         targetChar = targetPlayer.Character
         if not targetChar then break end
         targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
         targetHum = targetChar:FindFirstChild("Humanoid")
         if not targetHRP or not targetHum or targetHum.Health <= 0 then
-            killed = true
-            break
+            killed = true ; break
         end
 
-        -- Safe checks → dừng followTask và exit
+        -- Chỉ exit khi vào safezone hoặc PvP tắt (không exit vì dist xa)
         if IsInSafeZone(targetPlayer) then
             SetText("Skip " .. targetPlayer.Name .. " (SafeZone)")
-            followRunning = false
-            shouldTween = false
-            task.wait(0.5)
+            followRunning = false ; shouldTween = false
             return false
         end
         if IsPvPDisabledAttr(targetPlayer) then
             SetText("Skip " .. targetPlayer.Name .. " (PvP off)")
-            followRunning = false
-            shouldTween = false
-            task.wait(0.5)
+            followRunning = false ; shouldTween = false
             return false
         end
         if targetPlayer:GetAttribute("IslandRaiding") then
             SetText("Skip " .. targetPlayer.Name .. " (Raiding)")
-            followRunning = false
-            shouldTween = false
-            task.wait(1)
+            followRunning = false ; shouldTween = false
             return false
         end
 
         local myHRP = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
         if not myHRP then break end
 
-        local dist   = (myHRP.Position - targetHRP.Position).Magnitude
-        local hpPct  = math.floor(targetHum.Health / targetHum.MaxHealth * 100)
+        local dist  = (myHRP.Position - targetHRP.Position).Magnitude
+        local hpPct = math.floor(targetHum.Health / targetHum.MaxHealth * 100)
         SetText(string.format("%s | %s | HP:%d%% | dist:%.0f",
             reason or "V3", targetPlayer.Name, hpPct, dist))
 
-        -- Attack khi đủ gần (followTask đang tween đến → dist sẽ giảm dần)
         if dist <= 45 then
             EquipByTip("Melee")
 
@@ -1407,46 +1382,39 @@ local function AttackPlayer(targetPlayer, reason)
                 pcall(function() RS.Remotes.CommE:FireServer("Ken", true) end)
             end
 
-            hitCount = hitCount + 1
+            -- M1: chỉ click 1 lần mỗi 1.5s (để tránh suspicious kill)
+            if tick() - lastM1Time >= 1.5 then
+                lastM1Time = tick()
+                pcall(function()
+                    game:GetService("VirtualUser"):ClickButton1(Vector2.new())
+                end)
+                task.wait(0.15)
+            end
 
-            -- M1 melee — ngắt quãng: 1 hit rồi dừng ngắn
-            pcall(function()
-                game:GetService("VirtualUser"):ClickButton1(Vector2.new())
-            end)
-            task.wait(0.1)  -- dừng ngắn sau M1, followTask vẫn tiếp tục chase
-
-            -- Spam skill Z → X → C, delay 0.5s mỗi skill
+            -- Skill Z → X → C mỗi skill delay 0.5s
             -- (followTask chạy ở background nên không đứng im)
             UseSkill("Z")
-            task.wait(0.15)  -- UseSkill wait 0.35 nội bộ + 0.15 = 0.5s tổng
+            task.wait(0.15)  -- UseSkill nội bộ 0.35 + 0.15 = 0.5s tổng
             UseSkill("X")
             task.wait(0.15)
             UseSkill("C")
             task.wait(0.15)
-
-            -- Ngắt quãng mỗi 3 hit (không đánh liên tục)
-            if hitCount % 3 == 0 then
-                task.wait(0.35)
-            end
         end
-        -- Nếu dist > 45: followTask đang chase → chờ tween đến gần
+        -- dist > 45: followTask đang tween đến
 
-        -- Theo dõi damage timeout
+        -- Damage timeout: 15s không deal dmg → skip
         if targetHum.Health < lastHealth then
             lastHealth    = targetHum.Health
             lastDamageTime = tick()
-        elseif tick() - lastDamageTime > 12 then
-            SetText("No damage 12s → skip " .. targetPlayer.Name)
-            followRunning = false
-            shouldTween   = false
-            task.wait(0.5)
+        elseif tick() - lastDamageTime > 15 then
+            SetText("No dmg 15s → skip " .. targetPlayer.Name)
+            followRunning = false ; shouldTween = false
             return false
         end
 
     until not targetHum or targetHum.Health <= 0
-    -- ─────────────────────────────────────────────────────────────
+    -- ──────────────────────────────────────────────────────────────
 
-    -- Dừng followTask
     followRunning = false
     shouldTween   = false
     SetText("Kill done: " .. (targetPlayer and targetPlayer.Name or "?"))
@@ -1699,27 +1667,66 @@ local function FindValidV3Target(blacklist)
 end
 
 local function GetV3()
-    --[[
-        WIKI (Blox Fruit):
-        ✓ Kill 5 players WITHOUT dying → nếu chết thì count server reset về 0
-        ✓ Cùng 1 player có thể kill nhiều lần
-        ✓ Level target phải đủ gần (đủ để lấy bounty)
-        ✓ Kill "suspicious" không tính → cần deal dmg thật (AttackPlayer đã xử lý)
-        ✓ Kill thêm dự phòng do glitch không register → target 7 kill
-        ✓ Quest reset khi join server mới → luôn nhận quest trước
-        ✓ Friendly PvP mode được phép → EnablePvp đã gọi
-    ]]
-
     SetText("[Ghoul V3] Bắt đầu Up V3...")
     getgenv().KilledV3Count = 0
 
-    -- Target ưu tiên — wiki cho phép kill cùng 1 người nhiều lần
-    -- → giữ nguyên target để farm thay vì đổi liên tục
-    local preferredTarget = nil
-    -- Chỉ blacklist khi target thực sự không thể attack (safezone, PvP off, level quá xa)
-    -- KHÔNG blacklist khi chỉ bị "skip" tạm thời
-    local sessionBlacklist = {}
-    local noTargetRetries = 0
+    local preferredTarget   = nil
+    local sessionBlacklist  = {}   -- blacklist tạm (có thể clear)
+    local permanentBlacklist = {}  -- blacklist vĩnh viễn (suspicious kill)
+    local noTargetRetries   = 0
+    local KILLS_TARGET      = 7
+
+    -- Suspicious kill per player: đếm số lần kill cùng 1 người mà không count
+    local suspiciousPerPlayer = {}
+    local SUSPICIOUS_PER_PLAYER_LIMIT = 2  -- 2 lần kill không count → skip
+
+    -- ── BOT DETECTION ─────────────────────────────────────
+    -- Đánh dấu character mình để bot khác có thể phát hiện
+    -- StringValue trong character được replicate giữa các player
+    local BOT_MARKER = "__GhoulV3Bot__"
+    local function MarkAsBot()
+        pcall(function()
+            local char = LP.Character
+            if not char then return end
+            if not char:FindFirstChild(BOT_MARKER) then
+                local m = Instance.new("StringValue")
+                m.Name  = BOT_MARKER
+                m.Value = tostring(LP.UserId)
+                m.Parent = char
+            end
+        end)
+    end
+
+    local function HasOtherBotInServer()
+        for _, p in ipairs(game:GetService("Players"):GetPlayers()) do
+            if p ~= LP then
+                local char = p.Character
+                if char and char:FindFirstChild(BOT_MARKER) then
+                    return true, p.Name
+                end
+            end
+        end
+        return false, nil
+    end
+
+    -- Đánh dấu ngay khi bắt đầu
+    MarkAsBot()
+    LP.CharacterAdded:Connect(function()
+        task.wait(1)
+        MarkAsBot()
+    end)
+
+    -- Check bot ngay khi vào
+    do
+        local hasBot, botName = HasOtherBotInServer()
+        if hasBot then
+            SetText("[Ghoul V3] Bot khác phát hiện: " .. botName .. " → HopServer!")
+            task.wait(2)
+            HopServer()
+            task.wait(5)
+        end
+    end
+    -- ───────────────────────────────────────────────────────
 
     -- Kill thêm dự phòng: wiki nói có thể glitch → target 7 kills
     local KILLS_TARGET = 7
@@ -1877,39 +1884,41 @@ local function GetV3()
                 if killed then
                     totalAttemptsKill       = totalAttemptsKill + 1
                     getgenv().KilledV3Count = getgenv().KilledV3Count + 1
+                    local killedName = target.Name
                     SetText(string.format("[Ghoul V3] ✅ Kill %d/%d! (%s)",
-                        getgenv().KilledV3Count, KILLS_TARGET, target.Name))
+                        getgenv().KilledV3Count, KILLS_TARGET, killedName))
 
-                    -- ── Sau kill: KHÔNG đứng im → tìm target mới ngay ──
-                    -- wiki: cùng người có thể kill lại, nhưng ta move để safe
-                    preferredTarget  = nil   -- reset để tìm target mới
-                    sessionBlacklist = {}    -- clear blacklist để có nhiều lựa chọn
-                    task.wait(1)             -- 1s để tránh bị kill ngược khi đứng im
+                    -- Sau kill: tìm target mới (không đứng im)
+                    preferredTarget  = nil
+                    sessionBlacklist = {}
+                    task.wait(1)  -- 1s tránh bị kill ngược
 
-                    -- Check sớm suspicious: state có cập nhật không?
+                    -- ── Check suspicious: state có progress không? ────────
                     local newState = GetGhoulV3QuestState()
                     if newState == 2 then
                         SetText("[Ghoul V3] ✅ Server xác nhận đủ kill → Nộp!")
-                        -- Sẽ xử lý ở vòng lặp tiếp theo (state == 2)
                     elseif newState == 1 then
-                        -- Kiểm tra: nếu đã kill đủ mà server vẫn state=1
-                        -- → có thể kills bị suspicious hoặc server chưa update
                         if getgenv().KilledV3Count >= KILLS_TARGET then
-                            -- Thử nộp trước (Wenlocktoad | 3)
+                            -- Kill đủ nhưng state vẫn 1 → thử nộp
                             SetText("[Ghoul V3] Kill đủ, thử nộp ngay...")
-                            local submitOk = false
                             pcall(function()
-                                local r = RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
-                                -- Nếu server trả về done → OK
-                                submitOk = (r == true or r == -2 or r == 2)
+                                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
                             end)
                             task.wait(1)
-                            -- Nếu không nộp được và không còn player nào → hop
-                            local anyTarget = FindValidV3Target({})
-                            if not anyTarget then
-                                local finalState = GetGhoulV3QuestState()
-                                if finalState == 1 then
-                                    SetText("[Ghoul V3] ⚠️ Không còn player & quest stuck → HopServer!")
+                            local finalState = GetGhoulV3QuestState()
+                            if finalState == 1 then
+                                -- Nộp fail → kill bị suspicious
+                                suspiciousPerPlayer[killedName] = (suspiciousPerPlayer[killedName] or 0) + 1
+                                SetText(string.format("[Ghoul V3] ⚠️ %s suspicious (%d/%d)",
+                                    killedName, suspiciousPerPlayer[killedName], SUSPICIOUS_PER_PLAYER_LIMIT))
+                                if suspiciousPerPlayer[killedName] >= SUSPICIOUS_PER_PLAYER_LIMIT then
+                                    permanentBlacklist[killedName] = true
+                                    SetText("[Ghoul V3] 🚫 " .. killedName .. " vĩnh viễn blacklist")
+                                end
+                                -- Kiểm tra còn ai để kill không
+                                local anyLeft = FindValidV3Target(permanentBlacklist)
+                                if not anyLeft then
+                                    SetText("[Ghoul V3] ⚠️ Không còn target & quest stuck → HopServer!")
                                     task.wait(1)
                                     HopServer()
                                     task.wait(5)
@@ -1917,8 +1926,19 @@ local function GetV3()
                             end
                         end
                     end
+
+                    -- Định kỳ check bot khác mỗi 5 kills
+                    if totalAttemptsKill % 5 == 0 then
+                        local hasBot, botName = HasOtherBotInServer()
+                        if hasBot then
+                            SetText("[Ghoul V3] Bot khác vào server: " .. (botName or "?") .. " → HopServer!")
+                            task.wait(1)
+                            HopServer()
+                            task.wait(5)
+                        end
+                    end
                 else
-                    -- Attack fail → blacklist target này, tìm người khác
+                    -- Attack fail → blacklist tạm, tìm người khác
                     sessionBlacklist[target.Name] = true
                     preferredTarget = nil
                     SetText("[Ghoul V3] Skip " .. target.Name .. " → tìm target khác...")
