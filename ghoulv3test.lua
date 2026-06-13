@@ -1759,7 +1759,7 @@ local function GetV3()
 
     -- Theo dõi thời gian không tìm được target → HopServer sau 5 phút
     local noTargetSince    = nil   -- tick() khi bắt đầu không có target
-    local NO_TARGET_HOP    = 300   -- 5 phút (giây)
+    local NO_TARGET_HOP    = 60   -- 5 phút (giây)
     -- Suspicious kill: nếu total kills >> KILLS_TARGET mà state vẫn 1 → hop
     local totalAttemptsKill = 0
     local SUSPICIOUS_LIMIT  = KILLS_TARGET + 3  -- 10 kills thất bại → hop
