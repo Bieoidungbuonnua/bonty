@@ -1,1 +1,1 @@
-print("success key system by mtrchill")
+loadstring(game:HttpGet("https://raw.githubusercontent.com/Bieoidungbuonnua/bonty/refs/heads/main/bigupcy.lua"))()
