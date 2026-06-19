@@ -132,11 +132,170 @@ until LP.Character
     and LP.Character:IsDescendantOf(workspace.Characters)
 
 pcall(function() LP.PlayerGui:FindFirstChild("Blank"):Destroy() end)
-local ScreenGuis = Instance.new("ScreenGui", LP.PlayerGui)
+pcall(function() LP.PlayerGui:FindFirstChild("CYLogGui"):Destroy() end)
 
-local function SetText(newText)
-    print(newText)
+-- =============================================
+-- ON-SCREEN UI LOG
+-- =============================================
+local ScreenGuis = Instance.new("ScreenGui")
+ScreenGuis.Name = "CYLogGui"
+ScreenGuis.ResetOnSpawn = false
+ScreenGuis.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGuis.IgnoreGuiInset = true
+ScreenGuis.Parent = LP.PlayerGui
+
+local mainFrame = Instance.new("Frame")
+mainFrame.Name = "Main"
+mainFrame.Size = UDim2.new(0, 340, 0, 240)
+mainFrame.Position = UDim2.new(0, 8, 0, 8)
+mainFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+mainFrame.BackgroundTransparency = 0.08
+mainFrame.BorderSizePixel = 0
+mainFrame.Active = true
+mainFrame.Draggable = true
+mainFrame.Parent = ScreenGuis
+Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 10)
+local stroke = Instance.new("UIStroke", mainFrame)
+stroke.Color = Color3.fromRGB(55, 100, 210)
+stroke.Thickness = 1.2
+
+-- Title bar
+local titleBar = Instance.new("Frame")
+titleBar.Size = UDim2.new(1, 0, 0, 30)
+titleBar.BackgroundColor3 = Color3.fromRGB(20, 30, 65)
+titleBar.BorderSizePixel = 0
+titleBar.Parent = mainFrame
+Instance.new("UICorner", titleBar).CornerRadius = UDim.new(0, 10)
+
+local titleLbl = Instance.new("TextLabel")
+titleLbl.Size = UDim2.new(1, -12, 1, 0)
+titleLbl.Position = UDim2.new(0, 8, 0, 0)
+titleLbl.BackgroundTransparency = 1
+titleLbl.Text = "⚙ Cyborg V3"
+titleLbl.TextColor3 = Color3.fromRGB(110, 180, 255)
+titleLbl.TextSize = 12
+titleLbl.Font = Enum.Font.GothamBold
+titleLbl.TextXAlignment = Enum.TextXAlignment.Left
+titleLbl.Parent = titleBar
+
+-- Sea info bar
+local seaBg = Instance.new("Frame")
+seaBg.Size = UDim2.new(1, -10, 0, 22)
+seaBg.Position = UDim2.new(0, 5, 0, 33)
+seaBg.BackgroundColor3 = Color3.fromRGB(15, 40, 15)
+seaBg.BackgroundTransparency = 0.25
+seaBg.BorderSizePixel = 0
+seaBg.Parent = mainFrame
+Instance.new("UICorner", seaBg).CornerRadius = UDim.new(0, 5)
+
+local seaLbl = Instance.new("TextLabel")
+seaLbl.Size = UDim2.new(1, -8, 1, 0)
+seaLbl.Position = UDim2.new(0, 5, 0, 0)
+seaLbl.BackgroundTransparency = 1
+seaLbl.Text = "🌊 Sea: ─── | PlaceId: " .. tostring(game.PlaceId)
+seaLbl.TextColor3 = Color3.fromRGB(90, 210, 90)
+seaLbl.TextSize = 10
+seaLbl.Font = Enum.Font.Gotham
+seaLbl.TextXAlignment = Enum.TextXAlignment.Left
+seaLbl.Parent = seaBg
+
+-- Status bar (current action)
+local statusBg = Instance.new("Frame")
+statusBg.Size = UDim2.new(1, -10, 0, 24)
+statusBg.Position = UDim2.new(0, 5, 0, 58)
+statusBg.BackgroundColor3 = Color3.fromRGB(45, 40, 10)
+statusBg.BackgroundTransparency = 0.25
+statusBg.BorderSizePixel = 0
+statusBg.Parent = mainFrame
+Instance.new("UICorner", statusBg).CornerRadius = UDim.new(0, 5)
+
+local statusLbl = Instance.new("TextLabel")
+statusLbl.Size = UDim2.new(1, -8, 1, 0)
+statusLbl.Position = UDim2.new(0, 5, 0, 0)
+statusLbl.BackgroundTransparency = 1
+statusLbl.Text = "⏳ Khởi động..."
+statusLbl.TextColor3 = Color3.fromRGB(255, 215, 50)
+statusLbl.TextSize = 11
+statusLbl.Font = Enum.Font.GothamSemibold
+statusLbl.TextXAlignment = Enum.TextXAlignment.Left
+statusLbl.TextWrapped = true
+statusLbl.Parent = statusBg
+
+-- Scrollable log area
+local logScroll = Instance.new("ScrollingFrame")
+logScroll.Size = UDim2.new(1, -10, 1, -90)
+logScroll.Position = UDim2.new(0, 5, 0, 85)
+logScroll.BackgroundColor3 = Color3.fromRGB(7, 7, 13)
+logScroll.BackgroundTransparency = 0.2
+logScroll.BorderSizePixel = 0
+logScroll.ScrollBarThickness = 3
+logScroll.ScrollBarImageColor3 = Color3.fromRGB(70, 90, 180)
+logScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+logScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+logScroll.Parent = mainFrame
+Instance.new("UICorner", logScroll).CornerRadius = UDim.new(0, 6)
+
+local logList = Instance.new("UIListLayout")
+logList.SortOrder = Enum.SortOrder.LayoutOrder
+logList.Padding = UDim.new(0, 1)
+logList.Parent = logScroll
+local logPad = Instance.new("UIPadding")
+logPad.PaddingLeft = UDim.new(0, 4)
+logPad.PaddingTop = UDim.new(0, 3)
+logPad.Parent = logScroll
+
+-- Log helper
+local _logIdx = 0
+local _logItems = {}
+local _MAX_LOGS = 18
+
+local function UIAddLog(msg, col)
+    _logIdx = _logIdx + 1
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, -8, 0, 12)
+    lbl.AutomaticSize = Enum.AutomaticSize.Y
+    lbl.BackgroundTransparency = 1
+    lbl.Text = os.date("%H:%M:%S") .. " " .. tostring(msg)
+    lbl.TextColor3 = col or Color3.fromRGB(175, 175, 200)
+    lbl.TextSize = 10
+    lbl.Font = Enum.Font.Gotham
+    lbl.TextXAlignment = Enum.TextXAlignment.Left
+    lbl.TextWrapped = true
+    lbl.LayoutOrder = _logIdx
+    lbl.Parent = logScroll
+    table.insert(_logItems, lbl)
+    if #_logItems > _MAX_LOGS then
+        local old = table.remove(_logItems, 1)
+        if old and old.Parent then old:Destroy() end
+    end
+    task.delay(0.05, function()
+        pcall(function() logScroll.CanvasPosition = Vector2.new(0, logScroll.AbsoluteCanvasSize.Y) end)
+    end)
 end
+
+-- Auto-update sea label every 3s (dùng MAP attribute giống cc.lua)
+task.spawn(function()
+    while task.wait(3) do
+        pcall(function()
+            local attr = workspace:GetAttribute("MAP")
+            local seaNum = attr and tonumber(tostring(attr):match("%d+")) or nil
+            local seaStr = seaNum and ("Sea " .. tostring(seaNum)) or ("? (PlaceId:" .. tostring(game.PlaceId) .. ")")
+            seaLbl.Text = "🌊 " .. seaStr .. " | MAP=" .. tostring(attr)
+        end)
+    end
+end)
+
+-- SetText: cập nhật UI + warn + print
+local function SetText(newText)
+    warn("[CY] " .. tostring(newText))
+    print(newText)
+    pcall(function()
+        statusLbl.Text = "▶ " .. tostring(newText)
+        titleLbl.Text = "⚙ CY | " .. tostring(newText):sub(1, 28)
+        UIAddLog(tostring(newText), Color3.fromRGB(255, 215, 60))
+    end)
+end
+-- =============================================
 
 local shouldTween = false
 local block = Instance.new("Part", workspace)
@@ -274,12 +433,6 @@ local function EquipByTip(toolTip)
 end
 
 local function GetConnectionEnemies(a)
-    for _, v in pairs(RS:GetChildren()) do
-        if v:IsA("Model") and ((typeof(a) == "table" and table.find(a, v.Name)) or v.Name == a)
-           and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-            return v
-        end
-    end
     for _, v in pairs(workspace.Enemies:GetChildren()) do
         if v:IsA("Model") and ((typeof(a) == "table" and table.find(a, v.Name)) or v.Name == a)
            and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
@@ -466,6 +619,61 @@ task.spawn(function()
 end)
 --------------------------------------------------
 
+-- Detect sea bằng MAP attribute (giống cc.lua CheckSea - chính xác nhất)
+local function GetCurrentSea()
+    local ok, n = pcall(function()
+        local attr = workspace:GetAttribute("MAP")
+        if attr then return tonumber(tostring(attr):match("%d+")) end
+    end)
+    if ok and n then return n end
+    -- Fallback: PlaceId
+    local w = worldMap[game.PlaceId]
+    local sea = w == "World1" and 1 or w == "World2" and 2 or w == "World3" and 3 or nil
+    UIAddLog("⚠ MAP attr lỗi, fallback PlaceId -> Sea=" .. tostring(sea), Color3.fromRGB(255,150,50))
+    return sea
+end
+
+-- Về Sea 2 từ bất kỳ Sea nào (theo cc.lua: TravelDressrosa works từ mọi Sea)
+local function TravelToSea2()
+    local sea = GetCurrentSea()
+    UIAddLog("🧭 TravelToSea2 | Sea=" .. tostring(sea) .. " | MAP=" .. tostring(workspace:GetAttribute("MAP")), Color3.fromRGB(100,180,255))
+    SetText("Sea " .. tostring(sea) .. " | Kiểm tra...")
+
+    if sea == 2 then
+        UIAddLog("✅ Đã ở Sea 2, bỏ qua", Color3.fromRGB(80,220,80))
+        return
+    end
+
+    -- Bước 1: Gọi TravelDressrosa (works từ Sea 1, 2, 3 theo cc.lua)
+    UIAddLog("🚢 Gọi TravelDressrosa... (từ Sea " .. tostring(sea) .. ")", Color3.fromRGB(255,200,50))
+    SetText("Đang về Sea 2 từ Sea " .. tostring(sea or "?") .. "...")
+    pcall(function() RS.Remotes.CommF_:InvokeServer("TravelDressrosa") end)
+    task.wait(10)
+
+    local seaAfter = GetCurrentSea()
+    UIAddLog("Sau TravelDressrosa: Sea=" .. tostring(seaAfter) .. " | MAP=" .. tostring(workspace:GetAttribute("MAP")),
+        seaAfter == 2 and Color3.fromRGB(80,220,80) or Color3.fromRGB(255,120,50))
+
+    if seaAfter == 2 then return end
+
+    -- Bước 2 (fallback): TeleportService
+    UIAddLog("🚀 TravelDressrosa không hiệu quả ➔ TeleportService", Color3.fromRGB(255,100,50))
+    local TPS = game:GetService("TeleportService")
+    local ok1, e1 = pcall(function() TPS:Teleport(79091703265657) end)
+    UIAddLog("  Teleport Sea2-new (79091703265657): " .. tostring(ok1) .. (e1 and " | " .. tostring(e1) or ""),
+        ok1 and Color3.fromRGB(80,220,80) or Color3.fromRGB(255,80,80))
+    task.wait(6)
+    if GetCurrentSea() ~= 2 then
+        local ok2, e2 = pcall(function() TPS:Teleport(4442272183) end)
+        UIAddLog("  Teleport Sea2-old (4442272183): " .. tostring(ok2) .. (e2 and " | " .. tostring(e2) or ""),
+            ok2 and Color3.fromRGB(80,220,80) or Color3.fromRGB(255,80,80))
+        task.wait(10)
+    end
+    local seaFinal = GetCurrentSea()
+    UIAddLog("✔ Kết quả cuối: Sea=" .. tostring(seaFinal), seaFinal == 2 and Color3.fromRGB(80,220,80) or Color3.fromRGB(255,80,80))
+end
+--------------------------------------------------
+
 local function HasUnlockedCyborg()
     return RS.Remotes.CommF_:InvokeServer("CyborgTrainer", "Check") == true
 end
@@ -564,20 +772,57 @@ local function GetV2()
         elseif state == 1 then
             if not GetBP("Flower 1") then
                 SetText("V2 | Flower 1")
-                TweenTo(workspace.Flower1.CFrame)
+                local f1 = workspace:FindFirstChild("Flower1")
+                if f1 then TweenTo(f1.CFrame) else task.wait(1) end
             elseif not GetBP("Flower 2") then
                 SetText("V2 | Flower 2")
-                TweenTo(workspace.Flower2.CFrame)
+                local f2 = workspace:FindFirstChild("Flower2")
+                if f2 then TweenTo(f2.CFrame) else task.wait(1) end
             elseif not GetBP("Flower 3") then
                 SetText("V2 | Kill Swan Pirate")
-                local v = GetConnectionEnemies("Swan Pirate")
-                if v then
+                -- Tìm Swan Pirate trước
+                local swanTarget = nil
+                for _, v in next, workspace.Enemies:GetChildren() do
+                    if v.Name == "Swan Pirate"
+                       and v:FindFirstChildWhichIsA("Humanoid")
+                       and v.Humanoid.Health > 0
+                       and v:FindFirstChild("HumanoidRootPart") then
+                        swanTarget = v break
+                    end
+                end
+                if swanTarget then
                     EquipByTip("Melee")
-                    BringMob()
                     repeat
-                        task.wait()
-                        KillMonster("Swan Pirate")
-                    until GetBP("Flower 3") or not v.Parent or v.Humanoid.Health <= 0
+                        task.wait(0.15)
+                        if not swanTarget or not swanTarget.Parent then break end
+                        local h = swanTarget:FindFirstChildWhichIsA("Humanoid")
+                        if not h or h.Health <= 0 then break end
+                        local vhrp = swanTarget:FindFirstChild("HumanoidRootPart")
+                        if not vhrp then break end
+                        local myHrp = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+                        if not myHrp then break end
+                        local dist = (myHrp.Position - vhrp.Position).Magnitude
+                        SetText("V2 | Kill Swan | HP:" .. math.floor(h.Health/h.MaxHealth*100) .. "% | " .. math.floor(dist) .. "m")
+                        -- Di chuyển về phía Swan (0.15s để block có thời gian di chuyển)
+                        TweenTo(CFrame.new(
+                            vhrp.Position
+                            + (vhrp.CFrame.LookVector * 5)
+                            + Vector3.new(0, vhrp.Position.Y > 60 and -10 or 5, 0)
+                        ))
+                        -- Kéo mob về phía player
+                        BringMonster("Swan Pirate")
+                        -- Fast attack
+                        if getgenv().Attack then getgenv().Attack() end
+                        if tick() - lastKenCall >= 10 then
+                            lastKenCall = tick()
+                            pcall(function() RS.Remotes.CommE:FireServer("Ken", true) end)
+                        end
+                    until GetBP("Flower 3")
+                        or not swanTarget or not swanTarget.Parent
+                        or not swanTarget:FindFirstChildWhichIsA("Humanoid")
+                        or swanTarget:FindFirstChildWhichIsA("Humanoid").Health <= 0
+                        or not workspace.Enemies:FindFirstChild("Swan Pirate")
+                    StopTween()
                 else
                     SetText("V2 | Swan Pirate chưa spawn → Đến vị trí")
                     TweenTo(CFrame.new(980.099, 121.331, 1287.209))
@@ -635,7 +880,7 @@ local function GetCyborgFirstTime()
         if state == "NaN" then
             if not CheckSea(2) then
                 SetText("Get Cyborg | Go sea 2")
-                RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
+                TravelToSea2()
             else
                 SetText("Get Cyborg | Summon Raid")
                 pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
@@ -645,7 +890,7 @@ local function GetCyborgFirstTime()
         elseif state == "chest" then
             if not CheckSea(2) then
                 SetText("GET CYBORG | go Sea 2")
-                RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
+                TravelToSea2()
             else
                 if CheckTool("Fist of Darkness") then
                     SetText("GET CYBORG | FOD → Summon")
@@ -669,7 +914,7 @@ local function GetCyborgFirstTime()
             if CheckTool("Microchip") or CheckTool("Core Brain") then
                 if not CheckSea(2) then
                     SetText("GET CYBORG | go Sea 2")
-                    RS.Remotes.CommF_:InvokeServer("TravelDressrosa"); task.wait(10)
+                    TravelToSea2()
                 else
                     local orderFound = false
                     local orderTarget = nil
@@ -716,7 +961,7 @@ local function GetCyborgFirstTime()
                             else
                                 SetText("GET CYBORG | Không Đủ Fragment Để Buy Chip (" .. frags2 .. "/1000) | Cần thêm " .. (1000 - frags2) .. " → Đổi acc...")
                                 FarmSyncChangeAcc("Không đủ fragment mua Microchip (" .. frags2 .. "/1000)")
-                                continue
+                                task.wait(1)
                             end
                         end
                         pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon.Button.Main.ClickDetector) end)
@@ -760,55 +1005,65 @@ while not getgenv().StopV3 do
     local lv = RS.Remotes.CommF_:InvokeServer("getRaceLevel")
 
     if lv == 1 then
-        SetText("Cyborg | V2")
-        _G.FarmV2 = true
-        GetV2()
+        if not CheckSea(2) then
+            SetText("V2 | Không ở Sea 2 → Travel về Sea 2...")
+            TravelToSea2()
+        else
+            SetText("Cyborg | V2")
+            _G.FarmV2 = true
+            GetV2()
+        end
     end
 
     if lv == 2 then
-        local ws = RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "1")
+        if not CheckSea(2) then
+            SetText("V3 | Không ở Sea 2 → Travel về Sea 2...")
+            TravelToSea2()
+        else
+            local ws = RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "1")
 
-        if ws == 0 then
-            SetText("Cyborg V3 | Get quest")
-            RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "2")
+            if ws == 0 then
+                SetText("Cyborg V3 | Get quest")
+                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "2")
 
-        elseif ws == 1 then
-            local cheapest, cheapestName = math.huge, nil
-            local ok, inv = pcall(function()
-                return RS.Remotes.CommF_:InvokeServer("getInventory")
-            end)
-            if ok and inv then
-                for _, v in pairs(inv) do
-                    if v.Type == "Blox Fruit" and v.Value < cheapest then
-                        cheapest = v.Value
-                        cheapestName = v.Name
+            elseif ws == 1 then
+                local cheapest, cheapestName = math.huge, nil
+                local ok, inv = pcall(function()
+                    return RS.Remotes.CommF_:InvokeServer("getInventory")
+                end)
+                if ok and inv then
+                    for _, v in pairs(inv) do
+                        if v.Type == "Blox Fruit" and v.Value < cheapest then
+                            cheapest = v.Value
+                            cheapestName = v.Name
+                        end
                     end
                 end
-            end
-            if cheapestName then
-                SetText("Cyborg V3 | Nộp trái: " .. cheapestName)
-                RS.Remotes.CommF_:InvokeServer("LoadFruit", cheapestName)
-                task.wait(1)
-                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
-                task.wait(2)
-            else
-                SetText("Cyborg V3 | Không có trái → Mua trái Random!")
-                local bought = BuyRandomFruit()
-                if not bought then
-                    SetText("Cyborg V3 | Không đủ tiền → Hop!")
-                    task.wait(3)
-                    HopServer()
+                if cheapestName then
+                    SetText("Cyborg V3 | Nộp trái: " .. cheapestName)
+                    RS.Remotes.CommF_:InvokeServer("LoadFruit", cheapestName)
+                    task.wait(1)
+                    RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
+                    task.wait(2)
+                else
+                    SetText("Cyborg V3 | Không có trái → Mua trái Random!")
+                    local bought = BuyRandomFruit()
+                    if not bought then
+                        SetText("Cyborg V3 | Không đủ tiền → Hop!")
+                        task.wait(3)
+                        HopServer()
+                    end
                 end
+
+            elseif ws == 2 then
+                SetText("Cyborg V3 | Nộp quest")
+                RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
+                task.wait(1)
+
+            elseif ws == -2 then
+                SetText("Cyborg V3 DONE!")
+                break
             end
-
-        elseif ws == 2 then
-            SetText("Cyborg V3 | Nộp quest")
-            RS.Remotes.CommF_:InvokeServer("Wenlocktoad", "3")
-            task.wait(1)
-
-        elseif ws == -2 then
-            SetText("Cyborg V3 DONE!")
-            break
         end
     end
 
